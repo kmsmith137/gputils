@@ -3,9 +3,9 @@
 #include <stdexcept>
 #include <algorithm>
 
-#include "../include/Array.hpp"
-#include "../include/internals/cuda_utils.hpp"    // CUDA_CALL()
-#include "../include/internals/string_utils.hpp"  // tuple_str()
+#include "../include/gputils/Array.hpp"
+#include "../include/gputils/cuda_utils.hpp"    // CUDA_CALL()
+#include "../include/gputils/string_utils.hpp"  // tuple_str()
 
 using namespace std;
 

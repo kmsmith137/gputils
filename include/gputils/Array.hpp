@@ -3,7 +3,7 @@
 
 #include <string>
 #include <vector>
-#include "mem_utils.hpp"  // allocator flags (af_*)
+#include "mem_utils.hpp"  // af_alloc() and flags
 
 
 namespace gputils {
@@ -197,7 +197,7 @@ Array<T>::Array(int ndim_, const ssize_t *shape_, int aflags_)
     }
 
     if (size != 0) {
-	base = alloc<T> (size, aflags);
+	base = af_alloc<T> (size, aflags);
 	data = base.get();
     }
     else
@@ -429,12 +429,12 @@ bool Array<T>::shape_equals(const Array<T2> &a) const
 
 template<typename T> std::string Array<T>::shape_str() const
 {
-    return ::shape_str(ndim, shape);
+    return ::gputils::shape_str(ndim, shape);
 }
 
 template<typename T> std::string Array<T>::stride_str() const
 {
-    return ::shape_str(ndim, strides);
+    return ::gputils::shape_str(ndim, strides);
 }
 
 

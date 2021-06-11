@@ -17,6 +17,28 @@ namespace gputils {
 #endif
 
 
+// ---------------------------------------   type_name()   -----------------------------------------
+
+
+// Returns a string typename, e.g. type_name<int>() -> "int"
+template<typename T>
+static std::string type_name()
+{
+    const char *s = typeid(T).name();
+
+#ifdef __GNUG__
+    // Reference: https://stackoverflow.com/questions/281818/unmangling-the-result-of-stdtype-infoname
+    int status = -1;
+    char *t = abi::__cxa_demangle(s, nullptr, nullptr, &status);
+    std::string ret((t && !status) ? t : s);
+    free(t);
+    return ret;
+#else
+    return std::string(s);
+#endif
+}
+
+
 // -----------------------------------  to_str(), from_str()  --------------------------------------
 
 
@@ -83,28 +105,6 @@ template<typename T>
 static std::string tuple_str(const std::vector<T> &tuple)
 {
     return tuple_str(tuple.size(), &tuple[0]);
-}
-
-
-// ---------------------------------------   type_name()   -----------------------------------------
-
-
-// Returns a string typename, e.g. type_name<int>() -> "int"
-template<typename T>
-static std::string type_name()
-{
-    const char *s = typeid(T).name();
-
-#ifdef __GNUG__
-    // Reference: https://stackoverflow.com/questions/281818/unmangling-the-result-of-stdtype-infoname
-    int status = -1;
-    char *t = abi::__cxa_demangle(s, nullptr, nullptr, &status);
-    std::string ret((t && !status) ? t : s);
-    free(t);
-    return ret;
-#else
-    return std::string(s);
-#endif
 }
 
 
