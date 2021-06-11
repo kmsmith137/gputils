@@ -136,7 +136,6 @@ struct RandomlyStridedArray {
 	arr.ndim = ndim;
 	arr.base = cbase;
 	arr.size = compute_size(ndim, &shape[0]);
-	arr.ncontig = compute_ncontig(ndim, &shape[0], &strides[0]);
 	arr.aflags = 0;
 	
 	for (int d = 0; d < ArrayMaxDim; d++) {

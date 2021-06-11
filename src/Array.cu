@@ -78,8 +78,7 @@ struct stride_checker {
 
 
 void check_array_invariants(const void *data, int ndim, const ssize_t *shape,
-			    ssize_t size, int ncontig, const ssize_t *strides,
-			    int aflags)
+			    ssize_t size, const ssize_t *strides, int aflags)
 {
     assert(ndim >= 0 && ndim <= ArrayMaxDim);
 
@@ -89,7 +88,6 @@ void check_array_invariants(const void *data, int ndim, const ssize_t *shape,
     }
 
     assert(size == compute_size(ndim, shape));
-    assert(ncontig == compute_ncontig(ndim, shape, strides));
     assert(!((data == nullptr) && (size != 0)));
     assert(!((data != nullptr) && (size == 0)));    
     check_aflags(aflags);

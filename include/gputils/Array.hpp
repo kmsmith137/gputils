@@ -23,7 +23,6 @@ struct Array {
     ssize_t shape[ArrayMaxDim];
     ssize_t size = 0;
 
-    int ncontig = 0;
     ssize_t strides[ArrayMaxDim];  // in units sizeof(T), not bytes
 
     std::shared_ptr<T> base;  // FIXME generalize to shared_ptr<void>?
@@ -35,7 +34,6 @@ struct Array {
     //  (data == nullptr)
     //      iff (size == 0)
     //      iff ((ndim==0) || (shape[i]==0 for some 0 <= i < ndim))
-    //       => (ncontig == ndim)
     //
     // Note that zero-dimensional arrays are empty (unlike numpy,
     // where zero-dimensional arrays have size 1).
@@ -65,6 +63,9 @@ struct Array {
     inline Array<T> to_gpu() const;
     inline Array<T> to_host(bool page_locked=true) const;
 
+    // Returns number of contiguous dimensions, assuming indices are ordered
+    // from slowest to fastest varying. Returns 'ndim' for an empty array.
+    int get_ncontig() const;
     
     // at(): range-checked accessor
     // (I'm reserving operator[] for an unchecked accessor.)
@@ -133,8 +134,7 @@ struct Array {
 
 
 extern void check_array_invariants(const void *data, int ndim, const ssize_t *shape,
-				   ssize_t size, int ncontig, const ssize_t *strides,
-				   int aflags);
+				   ssize_t size, const ssize_t *strides, int aflags);
 
 extern int compute_ncontig(int ndim, const ssize_t *shape, const ssize_t *strides);
 
@@ -176,8 +176,6 @@ Array<T>::Array(int ndim_, const ssize_t *shape_, int aflags_)
 {
     assert(ndim >= 0);
     assert(ndim <= ArrayMaxDim);
-
-    ncontig = ndim;
 
     for (int i = ndim; i < ArrayMaxDim; i++)
 	shape[i] = strides[i] = 0;
@@ -241,6 +239,11 @@ Array<T> Array<T>::to_host(bool page_locked) const
     return this->on_host() ? (*this) : this->clone(page_locked ? af_page_locked : 0);
 }
 
+template<typename T>
+int Array<T>::get_ncontig() const
+{
+    return compute_ncontig(ndim, shape, strides);
+}
 
 template<typename T>
 T& Array<T>::_at(int nd, const ssize_t *ix) const
@@ -297,11 +300,9 @@ Array<T> Array<T>::slice(int axis, int ix) const
 
     if (ret.size == 0) {
 	ret.data = nullptr;
-	ret.ncontig = ndim-1;
 	return ret;
     }
 
-    ret.ncontig = compute_ncontig(ret.ndim, ret.shape, ret.strides);
     ret.data = data + (ix * strides[axis]);
     return ret;
 }
@@ -329,11 +330,9 @@ Array<T> Array<T>::slice(int axis, int start, int stop) const
 
     if (ret.size == 0) {
 	ret.data = nullptr;
-	ret.ncontig = ndim;
 	return ret;
     }
 
-    ret.ncontig = compute_ncontig(ret.ndim, ret.shape, ret.strides);
     ret.data = data + (start * strides[axis]);
     return ret;
 }
@@ -362,7 +361,6 @@ Array<T> Array<T>::reshape_ref(int ndim_, const ssize_t *shape_) const
     //  - throws exception if shapes are incompatible, or src_strides are bad.
     reshape_ref_helper(ndim, shape, strides, ret.ndim, ret.shape, ret.strides);
     
-    ret.ncontig = compute_ncontig(ret.ndim, ret.shape, ret.strides);
     return ret;
 }
 
@@ -446,7 +444,7 @@ template<typename T> std::string Array<T>::stride_str() const
 
 template<typename T> void Array<T>::check_invariants() const
 {
-    check_array_invariants(data, ndim, shape, size, ncontig, strides, aflags);
+    check_array_invariants(data, ndim, shape, size, strides, aflags);
 }
     
 
