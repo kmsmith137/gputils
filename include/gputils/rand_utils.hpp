@@ -76,6 +76,34 @@ inline void randomize(T *buf, ssize_t nelts, std::mt19937 &rng = default_rng)
 }
 
 
+// -------------------------------------------------------------------------------------------------
+
+
+template<typename T>
+inline void randomly_permute(std::vector<T> &v, std::mt19937 &rng = default_rng)
+{
+    for (size_t i = 1; i < v.size(); i++) {
+	size_t j = rand_int(0, i+1, rng);
+	std::swap(v[i], v[j]);
+    }
+}
+
+
+// Returns a random permutation of {0,1,...,(n-1)}
+inline std::vector<ssize_t> rand_permutation(ssize_t nelts, std::mt19937 &rng = default_rng)
+{
+    assert(nelts >= 0);
+    
+    std::vector<ssize_t> v(nelts);
+    for (ssize_t i = 0; i < nelts; i++)
+	v[i] = i;
+
+    randomly_permute(v, rng);
+    return v;
+}
+
+
+
 } // namespace gputils
 
 #endif // _GPUTILS_RAND_UTILS_HPP
