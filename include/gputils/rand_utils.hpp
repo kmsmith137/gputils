@@ -17,14 +17,14 @@ extern std::mt19937 default_rng;
 // -------------------------------------------------------------------------------------------------
 
 
-inline ssize_t randint(ssize_t lo, ssize_t hi, std::mt19937 &rng = default_rng)
+inline ssize_t rand_int(ssize_t lo, ssize_t hi, std::mt19937 &rng = default_rng)
 {
     assert(lo < hi);
     return std::uniform_int_distribution<ssize_t>(lo,hi-1)(rng);   // note hi-1 here!
 }
 
 
-inline float uniform_rand(float lo=0.0, float hi=1.0, std::mt19937 &rng = default_rng)
+inline float rand_uniform(float lo=0.0, float hi=1.0, std::mt19937 &rng = default_rng)
 {
     return std::uniform_real_distribution<float>(lo,hi) (rng);
 }
