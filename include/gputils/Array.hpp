@@ -282,12 +282,18 @@ Array<T> Array<T>::slice(int axis, int ix) const
     ret.base = base;
     ret.size = 1;
 
+// Suppress spurious GCC warning in loop that follows.
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
+    
     for (int i = 0; i < ndim-1; i++) {
 	int j = (i < axis) ? i : (i+1);
 	ret.shape[i] = shape[j];
 	ret.strides[i] = strides[j];
 	ret.size *= shape[j];
     }
+    
+#pragma GCC diagnostic pop
 
     if (ret.size == 0) {
 	ret.data = nullptr;
