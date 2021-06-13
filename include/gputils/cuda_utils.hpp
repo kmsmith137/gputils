@@ -88,6 +88,77 @@ public:
 };
 
 
+// ------------------------------  RAII wrapper for cudaEvent_t  -----------------------------------
+
+
+struct CudaEventWrapper {
+protected:
+    // Reminder: cudaEvent_t is a typedef for (CUevent_st *)
+    std::shared_ptr<CUevent_st> p;
+
+public:
+    CudaEventWrapper()
+    {
+	cudaEvent_t e;
+	CUDA_CALL(cudaEventCreate(&e));
+	this->p = std::shared_ptr<CUevent_st> (e, cudaEventDestroy);
+    }
+
+    // A CudaEventWrapper can be used anywhere a cudaEvent_t can be used
+    // (e.g. in a kernel launch, or elsewhere in the CUDA API), via this
+    // conversion operator.
+    
+    operator cudaEvent_t() { return p.get(); }
+};
+
+
+// ---------------------------------------   CudaTimer   -------------------------------------------
+//
+// A very simple class for timing cuda kernels.
+//
+// Usage:
+//
+//   // Timer is running when constructed.
+//   CudaTimer t;   // or specify optional stream argument
+//
+//   // Run one or more kernels.
+//   kernel1<<<...>>> (...);
+//   kernel2<<<...>>> (...);
+//
+//   // CudaTimer::stop() synchronizes the stream.
+//   float elapsed_time = t.stop();
+
+
+struct CudaTimer {
+protected:
+    CudaEventWrapper start;
+    CudaEventWrapper end;
+    cudaStream_t stream;
+    bool running = true;
+
+public:
+    CudaTimer(cudaStream_t stream_ = nullptr)
+    {
+	stream = stream_;
+	CUDA_CALL(cudaEventRecord(start, stream));
+    }
+
+    float stop()
+    {
+	if (!running)
+	    throw std::runtime_error("double call to CudaTimer::stop()");
+
+	running = false;
+	CUDA_CALL(cudaEventRecord(end, stream));
+	CUDA_CALL(cudaEventSynchronize(end));
+
+	float milliseconds = 0.0;
+	CUDA_CALL(cudaEventElapsedTime(&milliseconds, start, end));
+	return milliseconds / 1000.;
+    }
+};
+
+
 } // namespace gputils
 
 
