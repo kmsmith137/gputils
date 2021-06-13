@@ -1,4 +1,4 @@
-NVCC=nvcc -std=c++17 -m64 -O3 --compiler-options -Wall
+NVCC=nvcc -std=c++17 -arch=sm_75 -m64 -O3 --compiler-options -Wall
 SHELL := /bin/bash
 
 .DEFAULT_GOAL: all
