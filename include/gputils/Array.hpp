@@ -66,6 +66,7 @@ struct Array {
     // Returns number of contiguous dimensions, assuming indices are ordered
     // from slowest to fastest varying. Returns 'ndim' for an empty array.
     int get_ncontig() const;
+    bool is_fully_contiguous() const { return get_ncontig() == ndim; }
     
     // at(): range-checked accessor
     // (I'm reserving operator[] for an unchecked accessor.)
@@ -116,7 +117,7 @@ struct Array {
     inline bool shape_equals(const std::vector<ssize_t> &shape) const;
     inline bool shape_equals(std::initializer_list<ssize_t> shape) const;
     template<typename T2> inline bool shape_equals(const Array<T2> &a) const;    
-    
+
     inline std::string shape_str() const;
     inline std::string stride_str() const;
 
@@ -440,7 +441,6 @@ template<typename T> std::string Array<T>::stride_str() const
 {
     return ::gputils::shape_str(ndim, strides);
 }
-
 
 template<typename T> void Array<T>::check_invariants() const
 {
