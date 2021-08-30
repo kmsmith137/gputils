@@ -1,3 +1,4 @@
 *~
 *.o
 tests/test-array
+tests/reverse-engineer-fragments

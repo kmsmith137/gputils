@@ -19,6 +19,7 @@ OFILES = \
   src/rand_utils.o \
 
 XFILES = \
+  tests/reverse-engineer-fragments \
   tests/test-array
 
 SRCDIRS = \
@@ -41,6 +42,9 @@ clean:
 
 %.o: %.cu $(HFILES)
 	$(NVCC) -c -o $@ $<
+
+tests/reverse-engineer-fragments: tests/reverse-engineer-fragments.o $(OFILES)
+	$(NVCC) -o $@ $^
 
 tests/test-array: tests/test-array.o $(OFILES)
 	$(NVCC) -o $@ $^
