@@ -1,4 +1,5 @@
-NVCC=nvcc -std=c++17 -arch=sm_75 -m64 -O3 --compiler-options -Wall
+# FIXME hardcoded -arch=sm_86 here. What is best practice?
+NVCC=nvcc -std=c++17 -arch=sm_86 -m64 -O3 --compiler-options -Wall
 SHELL := /bin/bash
 
 .DEFAULT_GOAL: all
