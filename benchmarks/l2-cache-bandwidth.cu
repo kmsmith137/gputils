@@ -1,6 +1,4 @@
 #include <iostream>
-#include <algorithm>
-
 #include "../include/gputils.hpp"
 
 using namespace std;

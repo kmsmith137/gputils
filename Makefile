@@ -20,6 +20,7 @@ OFILES = \
 
 XFILES = \
   benchmarks/l2-cache-bandwidth \
+  benchmarks/mma-int4 \
   tests/reverse-engineer-fragments \
   tests/test-array
 
@@ -45,6 +46,9 @@ clean:
 	$(NVCC) -c -o $@ $<
 
 benchmarks/l2-cache-bandwidth: benchmarks/l2-cache-bandwidth.o $(OFILES)
+	$(NVCC) -o $@ $^
+
+benchmarks/mma-int4: benchmarks/mma-int4.o $(OFILES)
 	$(NVCC) -o $@ $^
 
 tests/reverse-engineer-fragments: tests/reverse-engineer-fragments.o $(OFILES)

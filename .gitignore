@@ -1,5 +1,6 @@
 *~
 *.o
 benchmarks/l2-cache-bandwidth
+benchmarks/mma-int4
 tests/test-array
 tests/reverse-engineer-fragments
