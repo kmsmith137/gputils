@@ -19,6 +19,7 @@ OFILES = \
   src/rand_utils.o \
 
 XFILES = \
+  benchmarks/l2-cache-bandwidth \
   tests/reverse-engineer-fragments \
   tests/test-array
 
@@ -42,6 +43,9 @@ clean:
 
 %.o: %.cu $(HFILES)
 	$(NVCC) -c -o $@ $<
+
+benchmarks/l2-cache-bandwidth: benchmarks/l2-cache-bandwidth.o $(OFILES)
+	$(NVCC) -o $@ $^
 
 tests/reverse-engineer-fragments: tests/reverse-engineer-fragments.o $(OFILES)
 	$(NVCC) -o $@ $^
