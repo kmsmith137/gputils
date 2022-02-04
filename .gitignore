@@ -1,4 +1,5 @@
 *~
 *.o
+benchmarks/l2-cache-bandwidth
 tests/test-array
 tests/reverse-engineer-fragments
