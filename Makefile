@@ -7,6 +7,7 @@ SHELL := /bin/bash
 
 HFILES = \
   include/gputils/Array.hpp \
+  include/gputils/constexpr_functions.hpp \
   include/gputils/cuda_utils.hpp \
   include/gputils/mem_utils.hpp \
   include/gputils/rand_utils.hpp \
