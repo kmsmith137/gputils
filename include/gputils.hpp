@@ -4,6 +4,9 @@
 // Array class
 #include "gputils/Array.hpp"
 
+// constexpr_is_pow2(), constexpr_ilog2()
+#include "gputils/constexpr_functions.hpp"
+
 // CUDA_CALL(), CUDA_PEEK(), CudaStreamWrapper
 #include "gputils/cuda_utils.hpp"
 
