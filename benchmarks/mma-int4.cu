@@ -110,7 +110,7 @@ int main(int argc, char **argv)
     float elapsed_time = t.stop();
 
     cout << "    Elapsed time (sec) = "<< elapsed_time << "\n"
-	 << "    Tflops (GB/s) = " << (tflops/elapsed_time) << endl;
+	 << "    Tflops = " << (tflops/elapsed_time) << endl;
     
     return 0;
 }
