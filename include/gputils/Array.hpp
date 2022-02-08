@@ -101,7 +101,7 @@ struct Array {
     //
     //    Array<T> arr;
     //    for (auto ix = arr.ix_start(); arr.ix_valid(ix); arr.ix_next(ix)) {
-    //        float x = arr.at(ix);
+    //        T x = arr.at(ix);
     //        // ...
     //    }
     //    
