@@ -4,6 +4,9 @@
 // Array class
 #include "gputils/Array.hpp"
 
+// CudaStreamPool: run multiple streams with dynamic load-balancing, intended for timing
+#include "gputils/CudaStreamPool.hpp"
+
 // constexpr_is_pow2(), constexpr_ilog2()
 #include "gputils/constexpr_functions.hpp"
 
