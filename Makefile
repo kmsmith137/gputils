@@ -30,6 +30,7 @@ XFILES = \
   benchmarks/mma-int4 \
   reverse_engineering/reveng-mma-int4 \
   tests/reverse-engineer-fragments \
+  tests/scratch \
   tests/test-array
 
 SRCDIRS = \
@@ -74,6 +75,9 @@ reverse_engineering/reveng-mma-int4: reverse_engineering/reveng-mma-int4.o lib/l
 	$(NVCC) -o $@ $^
 
 tests/reverse-engineer-fragments: tests/reverse-engineer-fragments.o lib/libgputils.a
+	$(NVCC) -o $@ $^
+
+tests/scratch: tests/scratch.o lib/libgputils.a
 	$(NVCC) -o $@ $^
 
 tests/test-array: tests/test-array.o lib/libgputils.a
