@@ -17,6 +17,29 @@ namespace gputils {
 #endif
 
 
+// CudaStreamPool: run multiple streams with dynamic load-balancing, intended for timing
+//
+// Example:
+//
+//   int num_callbacks = 100;
+//   int num_streams = 2;
+//
+//   // Callback function is called when kernel(s) finish, and queues new kernel(s).
+//   auto callback = [&](const CudaStreamPool &pool, cudaStream_t stream, int istream)
+//       {
+//           kernel <<<...., stream>>> ();   // queue kernel(s)
+//
+//           cout << pool.num_callbacks << " kernels complete, avg time = "
+//                << pool.time_per_callback << " sec" << endl;
+//
+//	};
+//
+//   CudaStreamPool sp(callback, num_callbacks, nstreams);
+//   sp.run();
+//
+//   cout << "Final avg time = " << pool.time_per_callback << " sec" << endl;
+
+
 class CudaStreamPool {
 public:
     // callback(pool, stream, istream)
@@ -64,7 +87,6 @@ protected:
     // Used internally by manager thread
     void synchronize();
 };
-
     
 
 } // namespace gputils
