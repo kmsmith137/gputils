@@ -4,6 +4,11 @@
 #include <stdexcept>
 #include <sys/time.h>
 
+namespace gputils {
+#if 0
+}   // pacify editor auto-indent
+#endif
+
 
 inline struct timeval get_time()
 {
@@ -28,5 +33,7 @@ inline double time_since(const struct timeval &t0)
     return time_diff(t0, get_time());
 }
 
+
+}  // namespace gputils
 
 #endif // _GPUTILS_TIME_UTILS_HPP
