@@ -29,9 +29,9 @@ XFILES = \
   benchmarks/l2-cache-bandwidth \
   benchmarks/mma-int4 \
   loose_ends/bit-mapping \
+  loose_ends/scratch \
   reverse_engineering/reveng-mma-int4 \
   tests/reverse-engineer-fragments \
-  tests/scratch \
   tests/test-array
 
 SRCDIRS = \
@@ -75,13 +75,13 @@ benchmarks/mma-int4: benchmarks/mma-int4.o lib/libgputils.a
 loose_ends/bit-mapping: loose_ends/bit-mapping.o lib/libgputils.a
 	$(NVCC) -o $@ $^
 
+loose_ends/scratch: loose_ends/scratch.o lib/libgputils.a
+	$(NVCC) -o $@ $^
+
 reverse_engineering/reveng-mma-int4: reverse_engineering/reveng-mma-int4.o lib/libgputils.a
 	$(NVCC) -o $@ $^
 
 tests/reverse-engineer-fragments: tests/reverse-engineer-fragments.o lib/libgputils.a
-	$(NVCC) -o $@ $^
-
-tests/scratch: tests/scratch.o lib/libgputils.a
 	$(NVCC) -o $@ $^
 
 tests/test-array: tests/test-array.o lib/libgputils.a
