@@ -1,5 +1,6 @@
 #include <thread>
 #include "../include/gputils/cuda_utils.hpp"    // CUDA_CALL(), CudaStreamWrapper
+#include "../include/gputils/time_utils.hpp"    // get_time(), time_since()
 #include "../include/gputils/CudaStreamPool.hpp"
 
 using namespace std;
@@ -11,9 +12,10 @@ namespace gputils {
 #endif
 
 
-CudaStreamPool::CudaStreamPool(int ns, const callback_t &cb)
-    : nstreams(ns), callback(cb)
+CudaStreamPool::CudaStreamPool(const callback_t &callback_, int max_callbacks_, int nstreams_)
+    : callback(callback_), max_callbacks(max_callbacks_), nstreams(nstreams_)
 {
+    assert(max_callbacks >= 0);
     assert(nstreams > 0);
 
     // Streams will be created by cudaStreamWrapper constructor.
@@ -23,7 +25,7 @@ CudaStreamPool::CudaStreamPool(int ns, const callback_t &cb)
     for (int i = 0; i < nstreams; i++) {
 	this->sstate[i].pool = this;
 	this->sstate[i].state = 0;
-	this->sstate[i].index = i;
+	this->sstate[i].istream = i;
     }
 }
 
@@ -31,74 +33,59 @@ CudaStreamPool::CudaStreamPool(int ns, const callback_t &cb)
 void CudaStreamPool::run()
 {
     unique_lock ulock(lock);
-    if (is_running)
-	throw runtime_error("CudaStreamPool::run() called on already-running pool");
-    is_running = true;
+    if (is_started)
+	throw runtime_error("CudaStreamPool::run() called twice");
+    
+    is_started = true;
     ulock.unlock();
     
     std::thread t(manager_thread_body, this);
     t.join();
-
-    ulock.lock();
-    assert(is_running);
-    is_running = false;
 }
-
-
-int CudaStreamPool::get_num_callbacks() const
-{
-    lock_guard lg(lock);
-    return num_callbacks;
-}
-
-
-double CudaStreamPool::get_elapsed_time() const
-{
-    struct timeval curr_time;
-    
-    int err = gettimeofday(&curr_time, NULL);
-    assert(err == 0);
-
-    return (curr_time.tv_sec - start_time.tv_sec) + 1.0e-6 * (curr_time.tv_usec - start_time.tv_usec);
-}
-
 
 void CudaStreamPool::manager_thread_body(CudaStreamPool *pool)
 {
-    int err = gettimeofday(&pool->start_time, NULL);
-    assert(err == 0);
-    
+    auto start_time = get_time();
     unique_lock ulock(pool->lock);
 
     for (;;) {
 	bool did_callback = false;
-	bool found_running_stream = false;
-	
-	for (int i = 0; i < pool->nstreams; i++) {
-	    if (pool->sstate[i].state == 0) {
-		// Call callback function without holding lock.
-		ulock.unlock();
-		bool still_running = pool->callback(*pool, pool->streams[i], i);
-		did_callback = true;
 
-		// Reacquire lock to set state, before queueing cuda_callback.
-		ulock.lock();
-		pool->sstate[i].state = still_running ? 1 : 2;
+	for (int istream = 0; istream < pool->nstreams; istream++) {
+	    // At top of loop, lock is held.
+	    StreamState &ss = pool->sstate[istream];
 
-		// Queue cuda_callback without holding lock.
-		ulock.unlock();
-		if (still_running)
-		    CUDA_CALL(cudaLaunchHostFunc(pool->streams[i], cuda_callback, &pool->sstate[i]));
+	    if (ss.state == 1)  // kernel running on stream
+		continue;
 
-		// Reacquire lock before proceeding with loop.
-		ulock.lock();
+	    if (ss.state == 2) {  // kernel finished
+		pool->num_callbacks++;
+		pool->elapsed_time = time_since(start_time);
+		pool->time_per_callback = pool->elapsed_time / pool->num_callbacks;
+
+		if ((pool->max_callbacks > 0) && (pool->num_callbacks >= pool->max_callbacks)) {
+		    ulock.unlock();
+		    pool->synchronize();
+		    return;   // this is where the manager thread exits!
+		}
 	    }
-	    else if (pool->sstate[i].state == 1)
-		found_running_stream = true;
-	}
 
-	if (!did_callback && !found_running_stream)
-	    return;
+	    // Call callback function without holding lock.
+	    ulock.unlock();
+	    pool->callback(*pool, pool->streams[istream], istream);
+	    did_callback = true;
+
+	    // Reacquire lock to set state, before queueing cuda_callback.
+	    ulock.lock();
+	    ss.state = 1;
+	    
+	    // Queue cuda_callback without holding lock.
+	    ulock.unlock();
+	    CUDA_CALL(cudaLaunchHostFunc(pool->streams[istream], cuda_callback, &pool->sstate[istream]));
+
+	    // Reacquire lock before proceeding with loop.
+	    ulock.lock();
+	}
 
 	if (!did_callback)
 	    pool->cv.wait(ulock);
@@ -110,16 +97,23 @@ void CudaStreamPool::cuda_callback(void *up)
 {
     StreamState *u = reinterpret_cast<StreamState *> (up);
     CudaStreamPool *pool = u->pool;
-    int index = u->index;
+    int istream = u->istream;
 
-    assert((index >= 0) && (index < pool->nstreams));
-    assert(&pool->sstate[index] == u);
+    assert((istream >= 0) && (istream < pool->nstreams));
+    assert(&pool->sstate[istream] == u);
 
     unique_lock<mutex> ulock(pool->lock);
+    u->state = 2;
     pool->cv.notify_all();
-    pool->num_callbacks++;
-    u->state = 0;
 }
+
+
+void CudaStreamPool::synchronize()
+{
+    for (int istream = 0; istream < nstreams; istream++)
+	CUDA_CALL(cudaStreamSynchronize(streams[istream]));
+}
+
 
 
 }  // namespace gputils
