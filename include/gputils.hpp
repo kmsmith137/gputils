@@ -1,6 +1,7 @@
 #ifndef _GPUTILS_HPP
 #define _GPUTILS_HPP
 
+
 // Array class
 #include "gputils/Array.hpp"
 
@@ -21,5 +22,9 @@
 
 // to_str(), from_str(), tuple_str(), type_name()
 #include "gputils/string_utils.hpp"
+
+// get_time(), time_diff(), time_since()
+#include "gputils/time_utils.hpp"
+
 
 #endif // _GPUTILS_HPP
