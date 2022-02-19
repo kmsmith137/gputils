@@ -23,6 +23,9 @@
 // to_str(), from_str(), tuple_str(), type_name()
 #include "gputils/string_utils.hpp"
 
+// assert_arrays_equal()
+#include "gputils/test_utils.hpp"
+
 // get_time(), time_diff(), time_since()
 #include "gputils/time_utils.hpp"
 
