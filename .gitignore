@@ -2,6 +2,7 @@
 *.o
 benchmarks/l2-cache-bandwidth
 benchmarks/mma-int4
+benchmarks/warp-shuffle
 lib/libgputils.a
 lib/libgputils.so
 loose_ends/bit-mapping

@@ -28,6 +28,7 @@ LIBFILES = \
 XFILES = \
   benchmarks/l2-cache-bandwidth \
   benchmarks/mma-int4 \
+  benchmarks/warp-shuffle \
   loose_ends/bit-mapping \
   loose_ends/scratch \
   reverse_engineering/reveng-mma-int4 \
@@ -70,6 +71,9 @@ benchmarks/l2-cache-bandwidth: benchmarks/l2-cache-bandwidth.o lib/libgputils.a
 	$(NVCC) -o $@ $^
 
 benchmarks/mma-int4: benchmarks/mma-int4.o lib/libgputils.a
+	$(NVCC) -o $@ $^
+
+benchmarks/warp-shuffle: benchmarks/warp-shuffle.o lib/libgputils.a
 	$(NVCC) -o $@ $^
 
 loose_ends/bit-mapping: loose_ends/bit-mapping.o lib/libgputils.a
