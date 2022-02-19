@@ -12,7 +12,8 @@ HFILES = \
   include/gputils/cuda_utils.hpp \
   include/gputils/mem_utils.hpp \
   include/gputils/rand_utils.hpp \
-  include/gputils/string_utils.hpp
+  include/gputils/string_utils.hpp \
+  include/gputils/test_utils.hpp
 
 OFILES = \
   src/Array.o \
@@ -20,6 +21,7 @@ OFILES = \
   src/cuda_utils.o \
   src/mem_utils.o \
   src/rand_utils.o \
+  src/test_utils.o
 
 LIBFILES = \
   lib/libgputils.a \
