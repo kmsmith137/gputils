@@ -20,7 +20,7 @@ namespace gputils {
 // CudaStreamPool: run multiple streams with dynamic load-balancing, intended for timing
 //
 // Example:
-//
+// 
 //   int num_callbacks = 100;
 //   int num_streams = 2;
 //
@@ -28,16 +28,17 @@ namespace gputils {
 //   auto callback = [&](const CudaStreamPool &pool, cudaStream_t stream, int istream)
 //       {
 //           kernel <<<...., stream>>> ();   // queue kernel(s)
-//
-//           cout << pool.num_callbacks << " kernels complete, avg time = "
-//                << pool.time_per_callback << " sec" << endl;
-//
 //	};
 //
-//   CudaStreamPool sp(callback, num_callbacks, nstreams);
-//   sp.run();
+//   CudaStreamPool sp(callback, num_callbacks, nstreams, "kernel name");
 //
-//   cout << "Final avg time = " << pool.time_per_callback << " sec" << endl;
+//   // Example timing monitor: suppose each callback uses 200 GB of global memory BW
+//   sp.monitor_throughput("Global memory BW (GB/s)", 200.0);
+//
+//   // Example timing monitor: suppose each callback processes 0.5 sec of real-time data
+//   sp.monitor_timing("Real-time fraction", 0.5);
+//
+//   sp.run();
 
 
 class CudaStreamPool {
@@ -46,10 +47,20 @@ public:
     using callback_t = std::function<void(const CudaStreamPool &, cudaStream_t stream, int)>;
 
     // If max_callbacks=0, then CudaStreamPool.run() will run forever.
-    CudaStreamPool(const callback_t &callback, int max_callbacks=0, int nstreams=2);
+    CudaStreamPool(const callback_t &callback, int max_callbacks=0, int nstreams=2, const std::string &name="CudaStreamPool");
 
+    // Runs stream pool to completion.
     void run();
 
+    // These functions define "timing monitors".
+    // To monitor continuously as stream runs, call between constructor and run().
+    // To show once at the end, call after run(), then call show_timings().
+    void monitor_throughput(const std::string &label = "callbacks/sec", double coeff=1.0);
+    void monitor_time(const std::string &label = "seconds/callback", double coeff=1.0);
+
+    // Show all timing monitors (call without lock held).
+    void show_timings();
+    
     // These members are not protected by a lock. We currently assume that:
     //
     //   - when the pool is running, only the manager thread accesses these members
@@ -66,6 +77,7 @@ protected:
     const callback_t callback;
     const int nstreams;
     const int max_callbacks;
+    const std::string name;
     std::vector<CudaStreamWrapper> streams;  // length nstreams
     
     std::condition_variable cv;
@@ -77,9 +89,19 @@ protected:
 	CudaStreamPool *pool = nullptr;
     };
 
+    struct TimingMonitor {
+	std::string label;
+	double coeff;
+	bool thrflag;
+    };
+
     // Protected by lock
     std::vector<StreamState> sstate;
+    std::vector<TimingMonitor> timing_monitors;
     bool is_started = false;
+    bool is_done = false;
+
+    void _add_timing_monitor(const std::string &label, double coeff, bool thrflag);
     
     static void manager_thread_body(CudaStreamPool *pool);
     static void cuda_callback(void *stream_state);
