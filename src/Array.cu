@@ -116,7 +116,7 @@ void check_array_invariants(const void *data, int ndim, const ssize_t *shape,
     ssize_t min_stride = 1;
     for (int i = 0; i < n; i++) {
 	assert(sc[i].axis_stride >= min_stride);
-	min_stride = sc[i].axis_length * sc[i].axis_stride;
+	min_stride += (sc[i].axis_length - 1) * sc[i].axis_stride;
     }
 }
 
