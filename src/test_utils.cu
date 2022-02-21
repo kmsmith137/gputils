@@ -1,5 +1,6 @@
 #include <cassert>
 #include <iostream>
+#include "../include/gputils/rand_utils.hpp"
 #include "../include/gputils/test_utils.hpp"
 
 using namespace std;
@@ -8,6 +9,48 @@ namespace gputils {
 #if 0
 }  // editor auto-indent
 #endif
+
+
+vector<ssize_t> make_random_strides(int ndim, const ssize_t *shape, int ncontig, int nalign)
+{
+    assert(ndim <= ArrayMaxDim);
+    assert(ncontig >= 0);
+    assert(ncontig <= ndim);
+    assert(nalign >= 1);
+
+    int nd_strided = ndim - ncontig;
+    vector<ssize_t> axis_ordering = rand_permutation(nd_strided);
+    
+    vector<ssize_t> strides(ndim);
+    ssize_t curr_stride = 1;
+
+    for (int d = ndim-1; d >= nd_strided; d--) {
+	assert(shape[d] > 0);
+	strides[d] = curr_stride;
+	curr_stride += (shape[d]-1) * strides[d];
+    }
+
+    for (int i = 0; i < nd_strided; i++) {
+	int d = axis_ordering[i];
+	assert(shape[d] > 0);
+
+	ssize_t smin = (curr_stride + nalign - 1) / nalign;
+	ssize_t smax = std::max(smin+1, (2*curr_stride)/nalign);
+	strides[d] = nalign * rand_int(smin, smax+1);
+	curr_stride += (shape[d]-1) * strides[d];
+    }
+
+    return strides;
+}
+
+
+vector<ssize_t> make_random_strides(const vector<ssize_t> &shape, int ncontig, int nalign)
+{
+    return make_random_strides(shape.size(), &shape[0], ncontig, nalign);
+}
+
+
+// -------------------------------------------------------------------------------------------------
 
     
 void assert_arrays_equal(const Array<float> &arr1,

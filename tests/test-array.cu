@@ -48,7 +48,14 @@ static vector<ssize_t> make_random_shape()
 }
 
 
-static vector<ssize_t> make_random_strides(const vector<ssize_t> &shape)
+// FIXME I wrote a function make_random_strides() here, forgot it existed,
+// then wrote a similar function in test_utils.cu which I also named
+// make_random_strides().
+//
+// For now I've just renamed this function to xmake_random_strides(), but I'd
+// like to come back later and replace it with the "new" make_random_strides().
+
+static vector<ssize_t> xmake_random_strides(const vector<ssize_t> &shape)
 {
     int ndim = shape.size();
     vector<ssize_t> perm = rand_permutation(ndim);
@@ -157,7 +164,7 @@ struct RandomlyStridedArray {
     }
 
     RandomlyStridedArray(const vector<ssize_t> &shape_, bool noisy_=false)
-	: RandomlyStridedArray(shape_, make_random_strides(shape_), noisy_)
+	: RandomlyStridedArray(shape_, xmake_random_strides(shape_), noisy_)
     { }
     
     RandomlyStridedArray(bool noisy_=false)
@@ -356,7 +363,7 @@ struct FillTestInstance {
     { }
     
     FillTestInstance(const vector<ssize_t> &shape_) :
-	FillTestInstance(shape_, make_random_strides(shape_), make_random_strides(shape_))
+	FillTestInstance(shape_, xmake_random_strides(shape_), xmake_random_strides(shape_))
     { }
 
     FillTestInstance() :
