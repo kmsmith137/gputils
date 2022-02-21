@@ -49,7 +49,13 @@ struct Array {
     //    Array<float> arr({m,n}, af_gpu);
     Array(std::initializer_list<ssize_t> shape, int aflags=0);
 
-	  
+    // These constructors allow explicit strides.
+    // Often used in unit tests, with make_random_strides() in test_utils.hpp.
+    Array(int ndim, const ssize_t *shape, const ssize_t *strides, int aflags=0);
+    Array(const std::vector<ssize_t> &shape, const std::vector<ssize_t> &strides, int aflags=0);
+    Array(std::initializer_list<ssize_t> shape, std::initializer_list<ssize_t> strides, int aflags=0);
+
+    
     // Is array addressable on GPU? On host?
     inline bool on_gpu() const { return !data || af_on_gpu(aflags); }
     inline bool on_host() const { return !data || af_on_host(aflags); }
@@ -202,6 +208,63 @@ Array<T>::Array(int ndim_, const ssize_t *shape_, int aflags_)
     else
 	data = nullptr;
 }
+
+
+template<typename T>
+Array<T>::Array(int ndim_, const ssize_t *shape_, const ssize_t *strides_, int aflags_)
+    : ndim(ndim_), aflags(aflags_)
+{
+    assert(ndim > 0);
+    assert(ndim <= ArrayMaxDim);
+
+    for (int i = ndim; i < ArrayMaxDim; i++)
+	shape[i] = strides[i] = 0;
+
+    if (ndim == 0) {
+	data = nullptr;
+	size = 0;
+	return;
+    }
+
+    size = 1;
+    ssize_t nalloc = 1;
+	
+    for (int d = 0; d < ndim; d++) {
+	shape[d] = shape_[d];
+	strides[d] = strides_[d];
+	
+	assert(shape[d] >= 0);
+	assert(strides[d] >= 0);
+	size *= shape[d];
+	nalloc += (shape[d]-1) * strides[d];
+    }
+
+    if (size != 0) {
+	base = af_alloc<T> (nalloc, aflags);
+	data = base.get();
+    }
+    else
+	data = nullptr;
+
+    this->check_invariants();
+}
+
+
+// This little device is useful in chaining Array constructors
+template<class C> int ndim_ss(const C &shape, const C &strides)
+{
+    if (shape.size() != strides.size())
+	throw std::runtime_error("shape/strides length mismatch in Array constructor");
+    return shape.size();
+}
+
+template<typename T>
+Array<T>::Array(const std::vector<ssize_t> &shape_, const std::vector<ssize_t> &strides_, int aflags)
+    : Array(ndim_ss(shape_,strides_), &shape_[0], &strides_[0], aflags) { }
+
+template<typename T>
+Array<T>::Array(std::initializer_list<ssize_t> shape_, std::initializer_list<ssize_t> strides_, int aflags)
+    : Array(ndim_ss(shape_,strides_), shape_.begin(), strides_.begin(), aflags) { }
 
 
 template<typename T>
