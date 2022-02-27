@@ -21,7 +21,7 @@ inline bool multiple_bits(int x)
 void check_aflags(int flags, const char *where)
 {
     if (!where)
-	where = "bristlecone::check_aflags()";
+	where = "gputils::check_aflags()";
 	
     if (_unlikely(flags & ~af_all_flags))
 	throw runtime_error(string(where) + ": unrecognized flags were specified");
@@ -95,7 +95,7 @@ struct alloc_helper {
     alloc_helper(ssize_t nbytes_, int flags_) :
 	nbytes(nbytes_), flags(flags_)
     {
-	check_aflags(flags, "bristlecone::alloc()");
+	check_aflags(flags, "gputils::alloc()");
 	
 	ssize_t g = (flags & af_guard) ? nguard : 0;
 	ssize_t nalloc = nbytes + 2*g;
@@ -108,7 +108,7 @@ struct alloc_helper {
 	else if (flags & af_page_locked)
 	    CUDA_CALL(cudaHostAlloc((void **) &this->base, nalloc, 0));
 	else if (posix_memalign((void **) &this->base, 128, nalloc))
-	    throw std::runtime_error("bristlecone::alloc(): couldn't allocate " + to_string(nalloc) + " bytes");
+	    throw std::runtime_error("gputils::alloc(): couldn't allocate " + to_string(nalloc) + " bytes");
 
 	this->data = base + g;
 
