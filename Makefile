@@ -7,6 +7,7 @@ SHELL := /bin/bash
 
 HFILES = \
   include/gputils/Array.hpp \
+  include/gputils/CpuThreadPool.hpp \
   include/gputils/CudaStreamPool.hpp \
   include/gputils/constexpr_functions.hpp \
   include/gputils/cuda_utils.hpp \
@@ -17,6 +18,7 @@ HFILES = \
 
 OFILES = \
   src/Array.o \
+  src/CpuThreadPool.o \
   src/CudaStreamPool.o \
   src/cuda_utils.o \
   src/mem_utils.o \
