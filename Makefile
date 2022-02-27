@@ -42,7 +42,8 @@ XFILES = \
 SRCDIRS = \
   include \
   include/gputils \
-  include/cuda_kernels \
+  benchmarks \
+  reverse_engineering \
   src \
   tests
 
@@ -55,7 +56,6 @@ source_files.txt: .FORCE
 
 clean:
 	rm -f $(XFILES) $(LIBFILES) source_files.txt *~
-	rmdir lib
 	shopt -s nullglob && for d in $(SRCDIRS); do rm -f $$d/*~ $$d/*.o; done
 
 %.o: %.cu $(HFILES)
