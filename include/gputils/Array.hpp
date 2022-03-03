@@ -3,6 +3,7 @@
 
 #include <string>
 #include <vector>
+#include <stdexcept>
 #include "mem_utils.hpp"  // af_alloc() and flags
 
 
