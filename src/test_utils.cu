@@ -11,6 +11,9 @@ namespace gputils {
 #endif
 
 
+// -------------------------------------------------------------------------------------------------
+
+
 vector<ssize_t> make_random_strides(int ndim, const ssize_t *shape, int ncontig, int nalign)
 {
     assert(ndim <= ArrayMaxDim);
@@ -52,15 +55,16 @@ vector<ssize_t> make_random_strides(const vector<ssize_t> &shape, int ncontig, i
 
 // -------------------------------------------------------------------------------------------------
 
-    
-void assert_arrays_equal(const Array<float> &arr1,
-			 const Array<float> &arr2,
-			 const string &name1,
-			 const string &name2,
-			 const vector<string> &axis_names,
-			 float epsabs,
-			 float epsrel,
-			 ssize_t max_display)
+
+template<typename T>
+T assert_arrays_equal(const Array<T> &arr1,
+		      const Array<T> &arr2,
+		      const string &name1,
+		      const string &name2,
+		      const vector<string> &axis_names,
+		      float epsabs,
+		      float epsrel,
+		      ssize_t max_display)
 {
     assert(arr1.shape_equals(arr2));
     assert(axis_names.size() == arr1.ndim);
@@ -68,16 +72,22 @@ void assert_arrays_equal(const Array<float> &arr1,
     assert(epsabs >= 0.0);
     assert(epsrel >= 0.0);
 
-    Array<float> harr1 = arr1.to_host(false);  // page_locked=false
-    Array<float> harr2 = arr2.to_host(false);  // page_locked=false
+    Array<T> harr1 = arr1.to_host(false);  // page_locked=false
+    Array<T> harr2 = arr2.to_host(false);  // page_locked=false
     int nfail = 0;
+    T maxdiff = 0;
 
     for (auto ix = arr1.ix_start(); arr1.ix_valid(ix); arr1.ix_next(ix)) {
-	float x = harr1.at(ix);
-	float y = harr2.at(ix);
-	float delta = std::abs(x-y);
-	float thresh = epsabs + 0.5*epsrel * (std::abs(x) + std::abs(y));
-	    
+	T x = harr1.at(ix);
+	T y = harr2.at(ix);
+	T delta = (x < y) ? (y-x) : (x-y);   // equivalent to abs(x-y), but works if T is unsigned.
+	
+	T thresh = 0;
+	if constexpr (is_floating_point<T>::value)
+	    thresh = epsabs + 0.5*epsrel * (std::abs(x) + std::abs(y));
+
+	maxdiff = max(maxdiff, delta);
+	
 	if (delta <= thresh)
 	    continue;
 
@@ -100,7 +110,33 @@ void assert_arrays_equal(const Array<float> &arr1,
 
     if (nfail > 0)
 	exit(1);
+
+    return maxdiff;
 }
+
+
+#define INSTANTIATE_ASSERT_ARRAYS_EQUAL(T)  \
+    template T assert_arrays_equal(         \
+	const Array<T> &arr1,	            \
+	const Array<T> &arr2,		    \
+	const string &name1,		    \
+	const string &name2,		    \
+	const vector<string> &axis_names,   \
+	float epsabs,                       \
+	float epsrel,                       \
+	ssize_t max_display)
+
+
+INSTANTIATE_ASSERT_ARRAYS_EQUAL(float);
+INSTANTIATE_ASSERT_ARRAYS_EQUAL(double);
+INSTANTIATE_ASSERT_ARRAYS_EQUAL(int);
+INSTANTIATE_ASSERT_ARRAYS_EQUAL(long);
+INSTANTIATE_ASSERT_ARRAYS_EQUAL(short);
+INSTANTIATE_ASSERT_ARRAYS_EQUAL(char);
+INSTANTIATE_ASSERT_ARRAYS_EQUAL(unsigned int);
+INSTANTIATE_ASSERT_ARRAYS_EQUAL(unsigned long);
+INSTANTIATE_ASSERT_ARRAYS_EQUAL(unsigned short);
+INSTANTIATE_ASSERT_ARRAYS_EQUAL(unsigned char);
 
 
 }  // namespace gputils

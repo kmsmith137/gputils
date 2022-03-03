@@ -19,14 +19,19 @@ extern std::vector<ssize_t> make_random_strides(const std::vector<ssize_t> &shap
 // -------------------------------------------------------------------------------------------------
 
 
-extern void assert_arrays_equal(const Array<float> &arr1,
-				const Array<float> &arr2,
-				const std::string &name1,
-				const std::string &name2,
-				const std::vector<std::string> &axis_names,
-				float epsabs = 3.0e-5,
-				float epsrel = 1.0e-5,
-				ssize_t max_display = 15);
+// Instantiated for T = float, double, (u)int, (u)long, (u)short, (u)char.
+// For non floating point types, the 'epsabs' and 'epsrel' arguments are ignored.
+// Returns the max difference between arrays.
+
+template<typename T>
+extern T assert_arrays_equal(const Array<T> &arr1,
+			     const Array<T> &arr2,
+			     const std::string &name1,
+			     const std::string &name2,
+			     const std::vector<std::string> &axis_names,
+			     float epsabs = 3.0e-5,
+			     float epsrel = 1.0e-5,
+			     ssize_t max_display = 15);
 
 
 }  // namespace test_utils
