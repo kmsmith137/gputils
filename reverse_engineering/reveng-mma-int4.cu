@@ -5,6 +5,70 @@ using namespace std;
 using namespace gputils;
 
 
+
+// -------------------------------------------------------------------------------------------------
+
+
+__device__ __forceinline__
+void mma_s4_m16_n8_k64(int c[4], int a[4], int b[2], int d[4])
+{
+      asm("mma.sync.aligned.m16n8k64.row.col.satfinite.s32.s4.s4.s32 "
+	  "{%0, %1, %2, %3}, "
+	  "{%4, %5, %6, %7}, "
+	  "{%8, %9}, "
+	  "{%10, %11, %12, %13};" :
+	   "=r" (c[0]), "=r" (c[1]), "=r" (c[2]), "=r" (c[3]) :
+	   "r" (a[0]), "r" (a[1]), "r" (a[2]), "r" (a[3]),
+ 	   "r" (b[0]), "r" (b[1]),
+	   "r" (d[0]), "r" (d[1]), "r" (d[2]), "r" (d[3])
+      );
+}
+
+
+// The 'asrc' array shape is (na, 32*Areg).
+// The 'bsrc' array shape is (nb, 32*Breg).
+// The 'cdst' array shape is (na, nb, 32*Creg)
+//
+// This kernel should be launched with (nblocks_x, nblocks_y) = (na, nb),
+// and 32 threads/block.
+
+
+template<void (*F)(int[], int[], int[], int[]), int Areg, int Breg, int Creg>
+__global__ void mma_kernel(int *cdst, const int *asrc, const int *bsrc)
+{
+    assert(blockDim.x == 32);
+
+    int ia = blockIdx.x;
+    int ib = blockIdx.y;
+    int nb = gridDim.y;
+    int laneId = threadIdx.x;
+
+    // Add block offsets
+    asrc += ia * 32 * Areg;
+    bsrc += ib * 32 * Breg;
+    cdst += (ia*nb + ib) * 32 * Creg;
+
+    int afrag[Areg];
+    int bfrag[Breg];
+    int cfrag[Creg];
+
+    for (int r = 0; r < Areg; r++)
+	afrag[r] = asrc[32*r + laneId];
+    for (int r = 0; r < Breg; r++)
+	bfrag[r] = bsrc[32*r + laneId];    
+    for (int r = 0; r < Creg; r++)
+	cfrag[r] = 0;
+
+    F(cfrag, afrag, bfrag, cfrag);
+    
+    for (int r = 0; r < Creg; r++)
+	cdst[32*r + laneId] = cfrag[r];
+}
+
+
+// -------------------------------------------------------------------------------------------------
+
+
 __host__ int slow_ilog2(int n)
 {
     assert(n > 0);
@@ -78,19 +142,12 @@ struct MatParams
     // State bit mapping (physical -> logical)
     vector<bool> pbit_isrow;
     vector<int> pbit_lindex;
-
-    // State bit mapping (logical -> physical)
-    // FIXME can get rid of this? And finalize()?
-    vector<int> lrbit_pindex;
-    vector<int> lcbit_pindex;
     bool finalized = false;
 
     
     MatParams() :
 	pbit_isrow(num_state_bits, false),
-	pbit_lindex(num_state_bits, -1),
-	lrbit_pindex(num_rowstate_bits, -1),
-	lcbit_pindex(num_colstate_bits, -1)
+	pbit_lindex(num_state_bits, -1)
     { }
 
     
@@ -111,6 +168,7 @@ struct MatParams
     
     void assign_state_bit(int b, bool isrow, int index)
     {
+	assert(!finalized);
 	assert((b >= 0) && (b < num_state_bits));
 	assert(this->pbit_lindex[b] < 0);
 
@@ -122,24 +180,11 @@ struct MatParams
     }
 
 
-    void finalize_layout()
+    void finalize()
     {
-	for (int pb = 0; pb < num_state_bits; pb++) {
-	    vector<int> &v = pbit_isrow[pb] ? lrbit_pindex : lcbit_pindex;
-	    int lb = pbit_lindex[pb];
-	    
-	    assert(lb >= 0);
-	    assert(lb < v.size());
-	    assert(v[lb] < 0);
-	    v[lb] = pb;
-	}
-
-	// Paranoid
-	for (unsigned int lb = 0; lb < lrbit_pindex.size(); lb++)
-	    assert(lrbit_pindex[lb] >= 0);
-	for (unsigned int lb = 0; lb < lcbit_pindex.size(); lb++)
-	    assert(lcbit_pindex[lb] >= 0);
-
+	for (int pb = 0; pb < num_state_bits; pb++)
+	    assert(pbit_lindex[pb] >= 0);
+	
 	this->finalized = true;
     }
     
@@ -157,6 +202,7 @@ struct MatParams
 	else
 	    cout << col_prefix << this->pbit_lindex[b] << "\n";
     }
+
     
     void show_layout(const char *row_prefix, const char *col_prefix) const
     {
@@ -270,32 +316,6 @@ struct MatParams
 		assert(a.data[i] == b.data[i]);
 	}
     }
-
-
-    static __device__ void set_zero(int x[registers_per_thread])
-    {
-	#pragma unroll
-	for (int r = 0; r < registers_per_thread; r++)
-	    x[r] = 0;
-    }
-
-    static __device__ void load(int x[registers_per_thread], const int *p_warp)
-    {
-	int laneId = threadIdx.x & 0x1f;
-
-	#pragma unroll
-	for (int r = 0; r < registers_per_thread; r++)
-	    x[r] = p_warp[32*r + laneId];
-    }
-
-    static __device__ void store(int x[registers_per_thread], int *p_warp)
-    {
-	int laneId = threadIdx.x & 0x1f;
-
-	#pragma unroll
-	for (int r = 0; r < registers_per_thread; r++)
-	    p_warp[32*r + laneId] = x[r];
-    }
 };
 
 
@@ -314,23 +334,66 @@ struct MmaParams
 
     MmaParams() { }
 
-    void reverse_engineer(const Array<int> &dst)
+    
+    void reverse_engineer()
     {
-	constexpr int nb1 = AParams::num_state_bits;
-	constexpr int nb2 = BParams::num_state_bits;
+	constexpr int na = AParams::num_state_bits;
+	constexpr int nb = BParams::num_state_bits;
+	constexpr int Areg = AParams::registers_per_thread;
+	constexpr int Breg = BParams::registers_per_thread;
+	constexpr int Creg = CParams::registers_per_thread;
+    
+	Array<int> asrc = AParams::make_basis_fragments();
+	Array<int> bsrc = BParams::make_basis_fragments();
+	Array<int> cdst({na+1, nb+1, CParams::int32s_per_fragment}, af_gpu);
+	
+	assert(asrc.shape_equals({na+1, AParams::int32s_per_fragment}));
+	assert(bsrc.shape_equals({nb+1, BParams::int32s_per_fragment}));
+
+	dim3 nblocks;
+	nblocks.x = na+1;
+	nblocks.y = nb+1;
+	nblocks.z = 1;
+	
+	mma_kernel<mma_s4_m16_n8_k64,Areg,Breg,Creg> <<<nblocks, 32>>> (cdst.data, asrc.data, bsrc.data);
+	
+	CUDA_PEEK("mma_kernel [1]");
+	cdst = cdst.to_host();
+
+	Array<int> coupling({na+1,nb+1});
+	for (int i = 0; i < na+1; i++) {
+	    for (int j = 0; j < nb+1; j++) {
+		coupling.at({i,j}) = -1;
+		for (int k = 0; k < cdst.shape[2]; k++) {
+		    if (cdst.at({i,j,k}) != 0) {
+			assert(cdst.at({i,j,k}) == 1);
+			assert(coupling.at({i,j}) < 0);
+			coupling.at({i,j}) = k;
+		    }
+		}
+	    }
+	}
+	
+#if 1
+	cout << "Coupling matrix\n";
+	for (int i = 0; i < na+1; i++) {
+	    for (int j = 0; j < nb+1; j++)
+		cout << "  " << coupling.at({i,j});
+	    cout << endl;
+	}
+#endif
 	    
-	assert(dst.shape_equals({nb1+1,nb2+1}));
-	assert(dst.at({0,0}) == 0);
+	assert(coupling.at({0,0}) == 0);
 	
 	int curr_i = 0;
 	int curr_j = 0;
 	int curr_k = 0;
     
-	for (int b = 0; b < nb1; b++) {
-	    int d = dst.at({b+1,0});
+	for (int ia = 0; ia < na; ia++) {
+	    int d = coupling.at({ia+1,0});
 	    
 	    if (d >= 0) {  // index rows in A, C
-		aparams.assign_state_bit(b, true, curr_i);
+		aparams.assign_state_bit(ia, true, curr_i);
 		cparams.assign_state_bit(slow_ilog2(d), true, curr_i);
 		curr_i++;
 		continue;
@@ -338,16 +401,16 @@ struct MmaParams
 
 	    bool flag = false;
 	    
-	    for (int bb = 0; bb < nb2; bb++) {
-		d = dst.at({b+1,bb+1});
+	    for (int ib = 0; ib < nb; ib++) {
+		d = coupling.at({ia+1,ib+1});
 		if (d < 0)
 		    continue;
 
 		// index col in A, row in B
 		assert(d == 0);
 		assert(!flag);
-		aparams.assign_state_bit(b, false, curr_j);
-		bparams.assign_state_bit(bb, true, curr_j);
+		aparams.assign_state_bit(ia, false, curr_j);
+		bparams.assign_state_bit(ib, true, curr_j);
 		flag = true;
 		curr_j++;
 	    }
@@ -355,33 +418,33 @@ struct MmaParams
 	    assert(flag);
 	}
 
-	for (int b = 0; b < nb2; b++) {
-	    int d = dst.at({0,b+1});
+	for (int ib = 0; ib < nb; ib++) {
+	    int d = coupling.at({0,ib+1});
 	    if (d >= 0) {  // index cols in B, C
-		bparams.assign_state_bit(b, false, curr_k);
+		bparams.assign_state_bit(ib, false, curr_k);
 		cparams.assign_state_bit(slow_ilog2(d), false, curr_k);
 		curr_k++;
 	    }
 	}
 
-	aparams.finalize_layout();
-	bparams.finalize_layout();
-	cparams.finalize_layout();
+	aparams.finalize();
+	bparams.finalize();
+	cparams.finalize();
 	
 	this->show_layout();
 
-	for (int ir = 0; ir < nb1+1; ir++) {
+	for (int ir = 0; ir < na+1; ir++) {
 	    int i, ja;
 	    int pindex_a = (ir > 0) ? (1 << (ir-1)) : 0;
 	    aparams.pindex_to_rc(pindex_a, i, ja);
 	    
-	    for (int ic = 0; ic < nb2+1; ic++) {
+	    for (int ic = 0; ic < nb+1; ic++) {
 		int jb, k;
 		int pindex_b = (ic > 0) ? (1 << (ic-1)) : 0;
 		bparams.pindex_to_rc(pindex_b, jb, k);
 
 		int d = (ja == jb) ? cparams.rc_to_pindex(i,k) : -1;
-		assert(dst.at({ir,ic}) == d);
+		assert(coupling.at({ir,ic}) == d);
 	    }
 	}
     }
@@ -398,69 +461,42 @@ struct MmaParams
     }
 
 
-    void test_pack_unpack() const
+    void end_to_end_test() const
     {
+	constexpr int Areg = AParams::registers_per_thread;
+	constexpr int Breg = BParams::registers_per_thread;
+	constexpr int Creg = CParams::registers_per_thread;
+	constexpr int nc = CParams::int32s_per_fragment;
+	
 	aparams.test_pack_unpack();
 	bparams.test_pack_unpack();
 	cparams.test_pack_unpack();
-	cout << "Yay!!" << endl;
+
+	Array<int> a = aparams.make_fragment(af_random);
+	Array<int> b = bparams.make_fragment(af_random);
+
+	Array<int> au = aparams.unpack_fragment(a);
+	Array<int> bu = bparams.unpack_fragment(b);
+	Array<int> ccpu = slow_matmul(au, bu);
+	ccpu = cparams.pack_fragment(ccpu);
+
+	Array<int> ag = a.to_gpu();
+	Array<int> bg = b.to_gpu();
+	Array<int> cgpu = cparams.make_fragment(af_gpu);
+
+	mma_kernel<mma_s4_m16_n8_k64,Areg,Breg,Creg> <<<1,32>>> (cgpu.data, ag.data, bg.data);
+	CUDA_PEEK("mma_kernel [2]");
+	CUDA_CALL(cudaDeviceSynchronize());
+	cgpu = cgpu.to_host();
+
+	assert(ccpu.shape_equals({nc}));
+	assert(cgpu.shape_equals({nc}));
+	for (int i = 0; i < nc; i++) {
+	    // cout << "  " << i << " " << ccpu.data[i] << " " << cgpu.data[i] << endl;
+	    assert(ccpu.data[i] == cgpu.data[i]);
+	}
     }
 };
-
-
-// -------------------------------------------------------------------------------------------------
-
-
-__device__ void mma(int c[4], int a[4], int b[2], int d[4])
-{
-      asm("mma.sync.aligned.m16n8k64.row.col.satfinite.s32.s4.s4.s32 "
-	  "{%0, %1, %2, %3}, "
-	  "{%4, %5, %6, %7}, "
-	  "{%8, %9}, "
-	  "{%10, %11, %12, %13};" :
-	   "=r" (c[0]), "=r" (c[1]), "=r" (c[2]), "=r" (c[3]) :
-	   "r" (a[0]), "r" (a[1]), "r" (a[2]), "r" (a[3]),
- 	   "r" (b[0]), "r" (b[1]),
-	   "r" (d[0]), "r" (d[1]), "r" (d[2]), "r" (d[3])
-      );
-}
-
-
-// The 'asrc' array shape is (na, a_registers_per_warp).
-// The 'bsrc' array shape is (nb, b_registers_per_warp).
-// The 'cdst' array shape is (na, nb, c_registers_per_warp).
-//
-// This kernel should be launched with (nblocks_x, nblocks_y) = (na, nb),
-// and 32 threads/block.
-
-__global__ void mma_kernel(int *cdst, const int *asrc, const int *bsrc)
-{
-    constexpr int a_nreg = MmaParams::AParams::registers_per_thread;
-    constexpr int b_nreg = MmaParams::BParams::registers_per_thread;
-    constexpr int c_nreg = MmaParams::CParams::registers_per_thread;
-    
-    assert(blockDim.x == 32);
-
-    int ia = blockIdx.x;
-    int ib = blockIdx.y;
-    int nb = gridDim.y;
-    
-    asrc += ia * 32 * a_nreg;
-    bsrc += ib * 32 * b_nreg;
-    cdst += (ia*nb + ib) * 32 * c_nreg;
-
-    int afrag[a_nreg];
-    int bfrag[b_nreg];
-    int cfrag[c_nreg];
-
-    MmaParams::AParams::load(afrag, asrc);
-    MmaParams::BParams::load(bfrag, bsrc);
-    MmaParams::CParams::set_zero(cfrag);
-
-    mma(cfrag, afrag, bfrag, cfrag);
-
-    MmaParams::CParams::store(cfrag, cdst);    
-}
 
 
 // -------------------------------------------------------------------------------------------------
@@ -468,76 +504,9 @@ __global__ void mma_kernel(int *cdst, const int *asrc, const int *bsrc)
     
 int main(int argc, char **argv)
 {
-    int na = MmaParams::AParams::num_state_bits + 1;
-    int nb = MmaParams::BParams::num_state_bits + 1;
-    
-    Array<int> asrc = MmaParams::AParams::make_basis_fragments();
-    Array<int> bsrc = MmaParams::BParams::make_basis_fragments();
-    Array<int> cdst({na, nb, MmaParams::CParams::int32s_per_fragment}, af_gpu);
-
-    assert(asrc.shape_equals({na, MmaParams::AParams::int32s_per_fragment}));
-    assert(bsrc.shape_equals({nb, MmaParams::BParams::int32s_per_fragment}));
-
-    dim3 nblocks;
-    nblocks.x = na;
-    nblocks.y = nb;
-    nblocks.z = 1;
-    
-    mma_kernel <<< nblocks, 32 >>> (cdst.data, asrc.data, bsrc.data);
-    CUDA_PEEK("mma_kernel [1]");
-    cdst = cdst.to_host();
-
-    Array<int> coupling({na,nb});
-    for (int i = 0; i < na; i++) {
-	for (int j = 0; j < nb; j++) {
-	    coupling.at({i,j}) = -1;
-	    for (int k = 0; k < cdst.shape[2]; k++) {
-		if (cdst.at({i,j,k}) != 0) {
-		    assert(cdst.at({i,j,k}) == 1);
-		    assert(coupling.at({i,j}) < 0);
-		    coupling.at({i,j}) = k;
-		}
-	    }
-	}
-    }
-		   
-#if 1
-    cout << "Coupling matrix\n";
-    for (int i = 0; i < na; i++) {
-	for (int j = 0; j < nb; j++)
-	    cout << "  " << coupling.at({i,j});
-	cout << endl;
-    }
-#endif
-		    
     MmaParams params;
-    params.reverse_engineer(coupling);
-    params.test_pack_unpack();
-
-    Array<int> a = params.aparams.make_fragment(af_random);
-    Array<int> b = params.bparams.make_fragment(af_random);
-
-    Array<int> au = params.aparams.unpack_fragment(a);
-    Array<int> bu = params.bparams.unpack_fragment(b);
-    Array<int> ccpu = slow_matmul(au, bu);
-    ccpu = params.cparams.pack_fragment(ccpu);
-
-    Array<int> ag = a.to_gpu();
-    Array<int> bg = b.to_gpu();
-    Array<int> cgpu = params.cparams.make_fragment(af_gpu);
-
-    mma_kernel <<<1,32>>> (cgpu.data, ag.data, bg.data);
-    CUDA_PEEK("mma_kernel [2]");
-    CUDA_CALL(cudaDeviceSynchronize());
-    cgpu = cgpu.to_host();
-
-    int nc = MmaParams::CParams::int32s_per_fragment;
-    assert(ccpu.shape_equals({nc}));
-    assert(cgpu.shape_equals({nc}));
-    for (int i = 0; i < nc; i++) {
-	// cout << "  " << i << " " << ccpu.data[i] << " " << cgpu.data[i] << endl;
-	assert(ccpu.data[i] == cgpu.data[i]);
-    }
+    params.reverse_engineer();
+    params.end_to_end_test();
     
     return 0;
 }
