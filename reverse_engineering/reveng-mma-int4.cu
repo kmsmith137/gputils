@@ -61,12 +61,18 @@ struct MatParams
     
     static constexpr int int32s_per_fragment = bits_per_fragment / 32;
     static constexpr int registers_per_thread = bits_per_fragment / 1024;
+
+    // A "physical" location is identified by (b,r,t), where b indexes a "bit" location within
+    // a single register, r indexes a register in a thread, and t indexes a thread.
     static constexpr int num_bstate_bits = constexpr_ilog2(32 / bit_depth);
     static constexpr int num_regstate_bits = constexpr_ilog2(registers_per_thread);
+
+    // A "logical" location is identified by a (row,col).
     static constexpr int num_rowstate_bits = constexpr_ilog2(nrows);
     static constexpr int num_colstate_bits = constexpr_ilog2(ncols);
-    static constexpr int num_state_bits = num_rowstate_bits + num_colstate_bits;
 
+    // Physical and logical locations should be parameterized by the same number of state bits.
+    static constexpr int num_state_bits = num_rowstate_bits + num_colstate_bits;
     static_assert(num_state_bits == num_bstate_bits + num_regstate_bits + 5);
 
     // State bit mapping (physical -> logical)
@@ -88,7 +94,7 @@ struct MatParams
     { }
 
     
-    static __host__ Array<int> make_src_matrix()
+    static __host__ Array<int> make_basis_fragments()
     {
 	Array<int> ret({num_state_bits+1, int32s_per_fragment}, af_zero);  // on cpu
 	ret.at({0,0}) = 1;
@@ -420,69 +426,28 @@ __device__ void mma(int c[4], int a[4], int b[2], int d[4])
 }
 
 
-__global__ void reveng_mma_kernel(int *dst, const int *asrc, const int *bsrc)
-{
-    constexpr int a_nrows = MmaParams::AParams::num_state_bits + 1;
-    constexpr int b_nrows = MmaParams::BParams::num_state_bits + 1;
-    constexpr int a_nreg = MmaParams::AParams::registers_per_thread;
-    constexpr int b_nreg = MmaParams::BParams::registers_per_thread;
-    constexpr int c_nreg = MmaParams::CParams::registers_per_thread;
-    
-    int afrag[a_nreg];
-    int bfrag[b_nreg];
-    int cfrag[c_nreg];
+// The 'asrc' array shape is (na, a_registers_per_warp).
+// The 'bsrc' array shape is (nb, b_registers_per_warp).
+// The 'cdst' array shape is (na, nb, c_registers_per_warp).
+//
+// This kernel should be launched with (nblocks_x, nblocks_y) = (na, nb),
+// and 32 threads/block.
 
-    assert(blockIdx.x == 0);
-    int nwarps = blockDim.x >> 5;
-    int warpId = threadIdx.x >> 5;
-    int laneId = threadIdx.x & 0x1f;
-	
-    for (int i = threadIdx.x; i < a_nrows*b_nrows; i += blockDim.x)
-	dst[i] = -1;
-    
-    for (int idst = warpId; idst < a_nrows*b_nrows; idst += nwarps) {
-	int arow = idst / b_nrows;
-	int brow = idst % b_nrows;
-
-	MmaParams::AParams::load(afrag, asrc + (32*a_nreg)*arow);
-	MmaParams::BParams::load(bfrag, bsrc + (32*b_nreg)*brow);
-	MmaParams::CParams::set_zero(cfrag);
-	
-	mma(cfrag, afrag, bfrag, cfrag);
-
-	int c_index = -1;
-	int c_count = 0;
-	
-	#pragma unroll
-	for (int r = 0; r < c_nreg; r++) {
-	    // Note warp divergence here
-	    if (cfrag[r] == 0)
-		continue;
-	    
-	    assert(cfrag[r] == 1);
-	    c_index = 32*r + laneId;
-	    c_count++;
-	}
-
-	c_index = __reduce_max_sync(0xffffffff, c_index);
-	c_count = __reduce_add_sync(0xffffffff, c_count);
-	assert(c_count <= 1);
-	
-	if (laneId == 0)
-	    dst[arow*b_nrows + brow] = c_index;
-    }
-}
-
-
-__global__ void single_mma_kernel(int *cdst, const int *asrc, const int *bsrc)
+__global__ void mma_kernel(int *cdst, const int *asrc, const int *bsrc)
 {
     constexpr int a_nreg = MmaParams::AParams::registers_per_thread;
     constexpr int b_nreg = MmaParams::BParams::registers_per_thread;
     constexpr int c_nreg = MmaParams::CParams::registers_per_thread;
+    
+    assert(blockDim.x == 32);
 
-    int warpId = threadIdx.x >> 5;
-    if (warpId != 0)
-	return;
+    int ia = blockIdx.x;
+    int ib = blockIdx.y;
+    int nb = gridDim.y;
+    
+    asrc += ia * 32 * a_nreg;
+    bsrc += ib * 32 * b_nreg;
+    cdst += (ia*nb + ib) * 32 * c_nreg;
 
     int afrag[a_nreg];
     int bfrag[b_nreg];
@@ -494,7 +459,7 @@ __global__ void single_mma_kernel(int *cdst, const int *asrc, const int *bsrc)
 
     mma(cfrag, afrag, bfrag, cfrag);
 
-    MmaParams::CParams::store(cfrag, cdst);
+    MmaParams::CParams::store(cfrag, cdst);    
 }
 
 
@@ -503,25 +468,50 @@ __global__ void single_mma_kernel(int *cdst, const int *asrc, const int *bsrc)
     
 int main(int argc, char **argv)
 {
-    Array<int> asrc = MmaParams::AParams::make_src_matrix();
-    Array<int> bsrc = MmaParams::BParams::make_src_matrix();
-    Array<int> dst({asrc.shape[0], bsrc.shape[0]}, af_gpu);
+    int na = MmaParams::AParams::num_state_bits + 1;
+    int nb = MmaParams::BParams::num_state_bits + 1;
+    
+    Array<int> asrc = MmaParams::AParams::make_basis_fragments();
+    Array<int> bsrc = MmaParams::BParams::make_basis_fragments();
+    Array<int> cdst({na, nb, MmaParams::CParams::int32s_per_fragment}, af_gpu);
 
-    reveng_mma_kernel<<<1,1024>>> (dst.data, asrc.data, bsrc.data);
-    CUDA_PEEK("reveng_mma_kernel");
-    CUDA_CALL(cudaDeviceSynchronize());
-    dst = dst.to_host();
+    assert(asrc.shape_equals({na, MmaParams::AParams::int32s_per_fragment}));
+    assert(bsrc.shape_equals({nb, MmaParams::BParams::int32s_per_fragment}));
+
+    dim3 nblocks;
+    nblocks.x = na;
+    nblocks.y = nb;
+    nblocks.z = 1;
+    
+    mma_kernel <<< nblocks, 32 >>> (cdst.data, asrc.data, bsrc.data);
+    CUDA_PEEK("mma_kernel [1]");
+    cdst = cdst.to_host();
+
+    Array<int> coupling({na,nb});
+    for (int i = 0; i < na; i++) {
+	for (int j = 0; j < nb; j++) {
+	    coupling.at({i,j}) = -1;
+	    for (int k = 0; k < cdst.shape[2]; k++) {
+		if (cdst.at({i,j,k}) != 0) {
+		    assert(cdst.at({i,j,k}) == 1);
+		    assert(coupling.at({i,j}) < 0);
+		    coupling.at({i,j}) = k;
+		}
+	    }
+	}
+    }
 		   
 #if 1
-    for (int i = 0; i < dst.shape[0]; i++) {
-	for (int j = 0; j < dst.shape[1]; j++)
-	    cout << "  " << dst.at({i,j});
+    cout << "Coupling matrix\n";
+    for (int i = 0; i < na; i++) {
+	for (int j = 0; j < nb; j++)
+	    cout << "  " << coupling.at({i,j});
 	cout << endl;
     }
 #endif
-
+		    
     MmaParams params;
-    params.reverse_engineer(dst);
+    params.reverse_engineer(coupling);
     params.test_pack_unpack();
 
     Array<int> a = params.aparams.make_fragment(af_random);
@@ -536,8 +526,8 @@ int main(int argc, char **argv)
     Array<int> bg = b.to_gpu();
     Array<int> cgpu = params.cparams.make_fragment(af_gpu);
 
-    single_mma_kernel<<<1,32>>> (cgpu.data, ag.data, bg.data);
-    CUDA_PEEK("single_mma_kernel");
+    mma_kernel <<<1,32>>> (cgpu.data, ag.data, bg.data);
+    CUDA_PEEK("mma_kernel [2]");
     CUDA_CALL(cudaDeviceSynchronize());
     cgpu = cgpu.to_host();
 
