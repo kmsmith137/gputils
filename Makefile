@@ -33,6 +33,7 @@ LIBFILES = \
 XFILES = \
   benchmarks/l2-cache-bandwidth \
   benchmarks/mma-int4 \
+  benchmarks/tensor-cores \
   benchmarks/warp-shuffle \
   loose_ends/bit-mapping \
   loose_ends/scratch \
@@ -79,6 +80,9 @@ benchmarks/l2-cache-bandwidth: benchmarks/l2-cache-bandwidth.o lib/libgputils.a
 	$(NVCC) -o $@ $^
 
 benchmarks/mma-int4: benchmarks/mma-int4.o lib/libgputils.a
+	$(NVCC) -o $@ $^
+
+benchmarks/tensor-cores: benchmarks/tensor-cores.o lib/libgputils.a
 	$(NVCC) -o $@ $^
 
 benchmarks/warp-shuffle: benchmarks/warp-shuffle.o lib/libgputils.a
