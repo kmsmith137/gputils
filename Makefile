@@ -11,6 +11,7 @@ HFILES = \
   include/gputils/CudaStreamPool.hpp \
   include/gputils/constexpr_functions.hpp \
   include/gputils/cuda_utils.hpp \
+  include/gputils/device_mma.hpp \
   include/gputils/mem_utils.hpp \
   include/gputils/rand_utils.hpp \
   include/gputils/string_utils.hpp \
@@ -35,7 +36,7 @@ XFILES = \
   benchmarks/warp-shuffle \
   loose_ends/bit-mapping \
   loose_ends/scratch \
-  reverse_engineering/reveng-mma-int4 \
+  reverse_engineering/reverse-engineer-mma \
   tests/reverse-engineer-fragments \
   tests/test-array
 
@@ -71,6 +72,10 @@ lib/libgputils.a: $(OFILES)
 	rm -f $@
 	ar rcs $@ $^
 
+# Special rule for procedurally generating 'device_mma.hpp'
+include/gputils/device_mma.hpp: generate_device_mma_hpp.py
+	python3 $^ >$@
+
 benchmarks/l2-cache-bandwidth: benchmarks/l2-cache-bandwidth.o lib/libgputils.a
 	$(NVCC) -o $@ $^
 
@@ -86,7 +91,7 @@ loose_ends/bit-mapping: loose_ends/bit-mapping.o lib/libgputils.a
 loose_ends/scratch: loose_ends/scratch.o lib/libgputils.a
 	$(NVCC) -o $@ $^
 
-reverse_engineering/reveng-mma-int4: reverse_engineering/reveng-mma-int4.o lib/libgputils.a
+reverse_engineering/reverse-engineer-mma: reverse_engineering/reverse-engineer-mma.o lib/libgputils.a
 	$(NVCC) -o $@ $^
 
 tests/reverse-engineer-fragments: tests/reverse-engineer-fragments.o lib/libgputils.a

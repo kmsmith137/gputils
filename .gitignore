@@ -3,10 +3,11 @@
 benchmarks/l2-cache-bandwidth
 benchmarks/mma-int4
 benchmarks/warp-shuffle
+include/gputils/device_mma.hpp
 lib/libgputils.a
 lib/libgputils.so
 loose_ends/bit-mapping
 loose_ends/scratch
-reverse_engineering/reveng-mma-int4
+reverse_engineering/reverse-engineer-mma
 tests/test-array
 tests/reverse-engineer-fragments

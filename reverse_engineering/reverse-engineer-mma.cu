@@ -1,5 +1,9 @@
 #include <iostream>
-#include "../include/gputils.hpp"
+#include "../include/gputils/Array.hpp"
+#include "../include/gputils/constexpr_functions.hpp"
+#include "../include/gputils/cuda_utils.hpp"
+#include "../include/gputils/device_mma.hpp"
+#include "../include/gputils/test_utils.hpp"
 
 using namespace std;
 using namespace gputils;
@@ -7,22 +11,6 @@ using namespace gputils;
 
 
 // -------------------------------------------------------------------------------------------------
-
-
-__device__ __forceinline__
-void mma_s4_m16_n8_k64(int c[4], int a[4], int b[2], int d[4])
-{
-      asm("mma.sync.aligned.m16n8k64.row.col.satfinite.s32.s4.s4.s32 "
-	  "{%0, %1, %2, %3}, "
-	  "{%4, %5, %6, %7}, "
-	  "{%8, %9}, "
-	  "{%10, %11, %12, %13};" :
-	   "=r" (c[0]), "=r" (c[1]), "=r" (c[2]), "=r" (c[3]) :
-	   "r" (a[0]), "r" (a[1]), "r" (a[2]), "r" (a[3]),
- 	   "r" (b[0]), "r" (b[1]),
-	   "r" (d[0]), "r" (d[1]), "r" (d[2]), "r" (d[3])
-      );
-}
 
 
 // The 'asrc' array shape is (na, 32*Areg).
@@ -193,7 +181,7 @@ struct MatParams
     void _show_state_bit(int b, const char *phys_prefix, int phys_index, const char *row_prefix, const char *col_prefix) const
     {
 	assert((b >= 0) && (b < num_state_bits));
-	cout << "    " << phys_prefix << phys_index << " <-> ";
+	cout << "        " << phys_prefix << phys_index << " <-> ";
 
 	if (this->pbit_lindex[b] < 0)
 	    cout << "[unassigned]\n";
@@ -358,7 +346,7 @@ struct MmaParams
 	    }
 	}
 	
-#if 1
+#if 0
 	cout << "Coupling matrix\n";
 	for (int i = 0; i < na+1; i++) {
 	    for (int j = 0; j < nb+1; j++)
@@ -473,11 +461,15 @@ struct MmaParams
     
     void show_layout() const
     {
-	cout << "A-matrix\n";
+	cout << "\n[int" << BitDepth << ", m=" << M << ", n=" << N << ", k=" << K << "]" << endl;
+
+	cout << "    A-matrix\n";
 	aparams.show_layout("i", "j");
-	cout << "B-matrix\n";
+	
+	cout << "    B-matrix\n";
 	bparams.show_layout("j", "k");
-	cout << "C-matrix\n";
+	
+	cout << "    C-matrix\n";
 	cparams.show_layout("i", "k");
     }
 
@@ -509,12 +501,25 @@ struct MmaParams
 
 // -------------------------------------------------------------------------------------------------
 
-    
-int main(int argc, char **argv)
+
+template<void (*F)(int[], int[], int[], int[]), int BitDepth, int M, int N, int K>
+static void reverse_engineer()
 {
-    MmaParams<mma_s4_m16_n8_k64, 4, 16, 8, 64> params;
+    MmaParams<F, BitDepth, M, N, K> params;
     params.reverse_engineer();
     params.end_to_end_test();
+}
+
+
+int main(int argc, char **argv)
+{
+    reverse_engineer<mma_s4_m8_n8_k32, 4, 8, 8, 32> ();
+    reverse_engineer<mma_s4_m16_n8_k32, 4, 16, 8, 32> ();
+    reverse_engineer<mma_s4_m16_n8_k64, 4, 16, 8, 64> ();
+    
+    reverse_engineer<mma_s8_m8_n8_k16, 8, 8, 8, 16> ();
+    reverse_engineer<mma_s8_m16_n8_k16, 8, 16, 8, 16> ();
+    reverse_engineer<mma_s8_m16_n8_k32, 8, 16, 8, 32> ();
     
     return 0;
 }
