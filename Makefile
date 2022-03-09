@@ -32,7 +32,6 @@ LIBFILES = \
 
 XFILES = \
   benchmarks/l2-cache-bandwidth \
-  benchmarks/mma-int4 \
   benchmarks/tensor-cores \
   benchmarks/warp-shuffle \
   loose_ends/bit-mapping \
