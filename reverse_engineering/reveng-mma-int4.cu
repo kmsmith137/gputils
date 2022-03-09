@@ -322,11 +322,12 @@ struct MatParams
 // -------------------------------------------------------------------------------------------------
 
 
+template<void (*F)(int[], int[], int[], int[]), int BitDepth, int M, int N, int K>
 struct MmaParams
 {
-    using AParams = MatParams<16, 64, 4>;
-    using BParams = MatParams<64, 8, 4>;
-    using CParams = MatParams<16, 8, 32>;
+    using AParams = MatParams<M, K, BitDepth>;
+    using BParams = MatParams<K, N, BitDepth>;
+    using CParams = MatParams<M, N, 32>;
 
     AParams aparams;
     BParams bparams;
@@ -334,31 +335,14 @@ struct MmaParams
 
     MmaParams() { }
 
-    
+
     void reverse_engineer()
     {
 	constexpr int na = AParams::num_state_bits;
 	constexpr int nb = BParams::num_state_bits;
-	constexpr int Areg = AParams::registers_per_thread;
-	constexpr int Breg = BParams::registers_per_thread;
-	constexpr int Creg = CParams::registers_per_thread;
-    
-	Array<int> asrc = AParams::make_basis_fragments();
-	Array<int> bsrc = BParams::make_basis_fragments();
-	Array<int> cdst({na+1, nb+1, CParams::int32s_per_fragment}, af_gpu);
-	
-	assert(asrc.shape_equals({na+1, AParams::int32s_per_fragment}));
-	assert(bsrc.shape_equals({nb+1, BParams::int32s_per_fragment}));
 
-	dim3 nblocks;
-	nblocks.x = na+1;
-	nblocks.y = nb+1;
-	nblocks.z = 1;
-	
-	mma_kernel<mma_s4_m16_n8_k64,Areg,Breg,Creg> <<<nblocks, 32>>> (cdst.data, asrc.data, bsrc.data);
-	
-	CUDA_PEEK("mma_kernel [1]");
-	cdst = cdst.to_host();
+	Array<int> cdst = this->run_kernel(AParams::make_basis_fragments(), BParams::make_basis_fragments());
+	assert(cdst.shape_equals({na+1, nb+1, CParams::int32s_per_fragment}));
 
 	Array<int> coupling({na+1,nb+1});
 	for (int i = 0; i < na+1; i++) {
@@ -449,6 +433,43 @@ struct MmaParams
 	}
     }
 
+
+    Array<int> run_kernel(const Array<int> &asrc, const Array<int> &bsrc) const
+    {
+	constexpr int Areg = AParams::registers_per_thread;
+	constexpr int Breg = BParams::registers_per_thread;
+	constexpr int Creg = CParams::registers_per_thread;
+	
+	assert((asrc.ndim >= 1) && (asrc.ndim <= 2));
+	assert((bsrc.ndim >= 1) && (bsrc.ndim <= 2));
+	assert(asrc.shape[asrc.ndim-1] == AParams::int32s_per_fragment);
+	assert(bsrc.shape[bsrc.ndim-1] == BParams::int32s_per_fragment);
+	
+	int na = (asrc.ndim > 1) ? asrc.shape[0] : 1;
+	int nb = (bsrc.ndim > 1) ? bsrc.shape[0] : 1;
+
+	vector<ssize_t> cshape;
+	if (asrc.ndim > 1)
+	    cshape.push_back(na);
+	if (bsrc.ndim > 1)
+	    cshape.push_back(nb);
+	cshape.push_back(CParams::int32s_per_fragment);
+	
+	Array<int> agpu = asrc.to_gpu();
+	Array<int> bgpu = bsrc.to_gpu();
+	Array<int> cdst(cshape, af_gpu);
+	
+	dim3 nblocks;
+	nblocks.x = na;
+	nblocks.y = nb;
+	nblocks.z = 1;
+	
+	mma_kernel<F,Areg,Breg,Creg> <<<nblocks, 32>>> (cdst.data, agpu.data, bgpu.data);
+	CUDA_PEEK("mma_kernel");
+
+	return cdst.to_host();
+    }
+
     
     void show_layout() const
     {
@@ -463,38 +484,25 @@ struct MmaParams
 
     void end_to_end_test() const
     {
-	constexpr int Areg = AParams::registers_per_thread;
-	constexpr int Breg = BParams::registers_per_thread;
-	constexpr int Creg = CParams::registers_per_thread;
-	constexpr int nc = CParams::int32s_per_fragment;
-	
 	aparams.test_pack_unpack();
 	bparams.test_pack_unpack();
 	cparams.test_pack_unpack();
 
-	Array<int> a = aparams.make_fragment(af_random);
-	Array<int> b = bparams.make_fragment(af_random);
+	for (int iouter = 0; iouter < 10; iouter++) {
+	    Array<int> asrc({AParams::int32s_per_fragment}, af_random);
+	    Array<int> bsrc({BParams::int32s_per_fragment}, af_random);
+	    
+	    Array<int> cgpu = run_kernel(asrc, bsrc);
+	    cgpu = cparams.unpack_fragment(cgpu);
 
-	Array<int> au = aparams.unpack_fragment(a);
-	Array<int> bu = bparams.unpack_fragment(b);
-	Array<int> ccpu = slow_matmul(au, bu);
-	ccpu = cparams.pack_fragment(ccpu);
+	    Array<int> au = aparams.unpack_fragment(asrc);
+	    Array<int> bu = bparams.unpack_fragment(bsrc);
+	    Array<int> cu = slow_matmul(au, bu);
 
-	Array<int> ag = a.to_gpu();
-	Array<int> bg = b.to_gpu();
-	Array<int> cgpu = cparams.make_fragment(af_gpu);
-
-	mma_kernel<mma_s4_m16_n8_k64,Areg,Breg,Creg> <<<1,32>>> (cgpu.data, ag.data, bg.data);
-	CUDA_PEEK("mma_kernel [2]");
-	CUDA_CALL(cudaDeviceSynchronize());
-	cgpu = cgpu.to_host();
-
-	assert(ccpu.shape_equals({nc}));
-	assert(cgpu.shape_equals({nc}));
-	for (int i = 0; i < nc; i++) {
-	    // cout << "  " << i << " " << ccpu.data[i] << " " << cgpu.data[i] << endl;
-	    assert(ccpu.data[i] == cgpu.data[i]);
+	    assert_arrays_equal(cu, cgpu, "cpu", "gpu", {"row","col"});
 	}
+
+	cout << "end_to_end_test: pass" << endl;
     }
 };
 
@@ -504,7 +512,7 @@ struct MmaParams
     
 int main(int argc, char **argv)
 {
-    MmaParams params;
+    MmaParams<mma_s4_m16_n8_k64, 4, 16, 8, 64> params;
     params.reverse_engineer();
     params.end_to_end_test();
     
