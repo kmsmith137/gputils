@@ -1,4 +1,6 @@
+#include <sstream>
 #include <iostream>
+
 #include "../include/gputils/Array.hpp"
 #include "../include/gputils/constexpr_functions.hpp"
 #include "../include/gputils/cuda_utils.hpp"
@@ -54,6 +56,14 @@ __global__ void mma_int_kernel(int *cdst, const int *asrc, const int *bsrc)
 }
 
 
+template<void (*F)(__half2[], const __half2[], const __half2[], const __half2[]), int Areg, int Breg, int Creg>
+__global__ void mma_float16_kernel(float *cdst, const int *asrc, const int *bsrc)
+{
+    // FIXME placeholder
+    return;
+}
+
+
 // -------------------------------------------------------------------------------------------------
 
 
@@ -66,10 +76,11 @@ __host__ int slow_ilog2(int n)
 }
 
 
-__host__ Array<int> slow_matmul(const Array<int> &a_, const Array<int> &b_)
+template<typename T>
+__host__ Array<T> slow_matmul(const Array<T> &a_, const Array<T> &b_)
 {
-    Array<int> a = a_.to_host();
-    Array<int> b = b_.to_host();
+    Array<T> a = a_.to_host();
+    Array<T> b = b_.to_host();
     
     assert(a.ndim == 2);
     assert(b.ndim == 2);
@@ -79,11 +90,11 @@ __host__ Array<int> slow_matmul(const Array<int> &a_, const Array<int> &b_)
     int p = a.shape[1];
     int n = b.shape[1];
 
-    Array<int> c({m,n});
+    Array<T> c({m,n});
 
     for (int i = 0; i < m; i++) {
 	for (int j = 0; j < n; j++) {
-	    int t = 0;
+	    T t = 0;
 	    for (int k = 0; k < p; k++)
 		t += a.at({i,k}) * b.at({k,j});
 	    c.at({i,j}) = t;
@@ -468,17 +479,26 @@ void test_pack_unpack(const MatParams &params)
 // -------------------------------------------------------------------------------------------------
 
 
-template<void (*F)(int[], const int[], const int[], const int[]), int BitDepth, int M, int N, int K>
+template<typename CudaType,   // either int or __half2
+	 void (*F)(CudaType[], const CudaType[], const CudaType[], const CudaType[]),
+	 typename AParams,    // MatParams for A-factor
+	 typename BParams,    // MatParams for B-factor
+	 typename CParams>    // MatParams for C-factor
 struct MmaParams
 {
-    using AParams = MatParamsInt <M, K, BitDepth>;
-    using BParams = MatParamsInt <K, N, BitDepth>;
-    using CParams = MatParamsInt <M, N, 32>;
-
     AParams aparams;
     BParams bparams;
     CParams cparams;
 
+    static_assert(AParams::ncols == BParams::nrows);
+    static_assert(CParams::nrows == AParams::nrows);
+    static_assert(CParams::ncols == BParams::ncols);
+    
+    static constexpr int M = AParams::nrows;
+    static constexpr int N = BParams::ncols;
+    static constexpr int K = AParams::ncols;
+
+    
     MmaParams() { }
 
 
@@ -561,8 +581,6 @@ struct MmaParams
 	bparams.finalize();
 	cparams.finalize();
 	
-	this->show_layout();
-
 	for (int ir = 0; ir < na+1; ir++) {
 	    int i, ja;
 	    int pindex_a = (ir > 0) ? (1 << (ir-1)) : 0;
@@ -617,9 +635,9 @@ struct MmaParams
     }
 
     
-    void show_layout() const
+    void show_layout(const string &name) const
     {
-	cout << "\n[int" << BitDepth << ", m=" << M << ", n=" << N << ", k=" << K << "]" << endl;
+	cout << "\n[" << name << ", m=" << M << ", n=" << N << ", k=" << K << "]" << endl;
 
 	cout << "    A-matrix\n";
 	aparams.show_layout("i", "j");
@@ -663,21 +681,29 @@ struct MmaParams
 template<void (*F)(int[], const int[], const int[], const int[]), int BitDepth, int M, int N, int K>
 static void reverse_engineer()
 {
-    MmaParams<F, BitDepth, M, N, K> params;
+    using AParams = MatParamsInt <M, K, BitDepth>;
+    using BParams = MatParamsInt <K, N, BitDepth>;
+    using CParams = MatParamsInt <M, N, 32>;
+
+    stringstream name;
+    name << "int" << BitDepth;
+    
+    MmaParams<int, F, AParams, BParams, CParams> params;
     params.reverse_engineer();
+    params.show_layout(name.str());
     params.end_to_end_test();
 }
 
 
 int main(int argc, char **argv)
 {
-    reverse_engineer<mma_s4_m8_n8_k32, 4, 8, 8, 32> ();
-    reverse_engineer<mma_s4_m16_n8_k32, 4, 16, 8, 32> ();
-    reverse_engineer<mma_s4_m16_n8_k64, 4, 16, 8, 64> ();
+    reverse_engineer <mma_s4_m8_n8_k32, 4, 8, 8, 32> ();
+    reverse_engineer <mma_s4_m16_n8_k32, 4, 16, 8, 32> ();
+    reverse_engineer <mma_s4_m16_n8_k64, 4, 16, 8, 64> ();
     
-    reverse_engineer<mma_s8_m8_n8_k16, 8, 8, 8, 16> ();
-    reverse_engineer<mma_s8_m16_n8_k16, 8, 16, 8, 16> ();
-    reverse_engineer<mma_s8_m16_n8_k32, 8, 16, 8, 32> ();
+    reverse_engineer <mma_s8_m8_n8_k16, 8, 8, 8, 16> ();
+    reverse_engineer <mma_s8_m16_n8_k16, 8, 16, 8, 16> ();
+    reverse_engineer <mma_s8_m16_n8_k32, 8, 16, 8, 32> ();
     
     return 0;
 }
