@@ -22,7 +22,7 @@ using namespace gputils;
 
 
 template<void (*F)(int[], const int[], const int[], const int[]), int Areg, int Breg, int Creg>
-__global__ void mma_kernel(int *cdst, const int *asrc, const int *bsrc)
+__global__ void mma_int_kernel(int *cdst, const int *asrc, const int *bsrc)
 {
     assert(blockDim.x == 32);
 
@@ -95,33 +95,60 @@ __host__ Array<int> slow_matmul(const Array<int> &a_, const Array<int> &b_)
 
 
 // -------------------------------------------------------------------------------------------------
+//
+// The MatParams class corresponds to one matrix (out of three: two source matrices and
+// one accumulator). There is a little class hierarchy:
+//
+//   MatParamsBase
+//     MatParamsInt
+//     MatParamsFloat16
+//
+// The MatParams class does two things:
+//
+//   - Keeps track of the register mapping (i.e. mapping between logical and physical bits).
+//     This is implemented in the MatParamsBase base class, via the following methods:
+//
+//        assign_state_bit()
+//        show_layout()
+//        finalize()
+//        pindex_to_rc()
+//        rc_to_pindex()
+//     
+//   - Converts between 2-d "matrices" and 1-d "fragments", which are represented respectively as:
+//
+//        Array<Dtype> matrix({nrows,ncols})
+//        Array<Dtype> fragment({fragment_length})   where Dtype = float or int
+//
+//     This is implemented in the MatParamsInt and MatParamsFloat16 subclasses, via the following methods:
+//
+//        make_fragment()
+//        make_basis_fragments()
+//        unpack_fragment()
+//        pack_fragment()
+//        test_pack_unpack()
 
 
 template<int Nrows, int Ncols, int BitDepth>
-struct MatParams
+struct MatParamsBase
 {
     static constexpr int nrows = Nrows;
     static constexpr int ncols = Ncols;
     static constexpr int bit_depth = BitDepth;
-    static constexpr int bits_per_fragment = nrows * ncols * bit_depth;
 
     static_assert(constexpr_is_pow2(nrows));
     static_assert(constexpr_is_pow2(ncols));
-    static_assert(constexpr_is_pow2(bit_depth));
-    static_assert(bits_per_fragment >= 1024);
-    static_assert(bit_depth <= 32);
     
-    static constexpr int int32s_per_fragment = bits_per_fragment / 32;
+    static constexpr int bits_per_fragment = nrows * ncols * bit_depth;
     static constexpr int registers_per_thread = bits_per_fragment / 1024;
+
+    // A "logical" location is identified by a (row,col).
+    static constexpr int num_rowstate_bits = constexpr_ilog2(nrows);
+    static constexpr int num_colstate_bits = constexpr_ilog2(ncols);
 
     // A "physical" location is identified by (b,r,t), where b indexes a "bit" location within
     // a single register, r indexes a register in a thread, and t indexes a thread.
     static constexpr int num_bstate_bits = constexpr_ilog2(32 / bit_depth);
     static constexpr int num_regstate_bits = constexpr_ilog2(registers_per_thread);
-
-    // A "logical" location is identified by a (row,col).
-    static constexpr int num_rowstate_bits = constexpr_ilog2(nrows);
-    static constexpr int num_colstate_bits = constexpr_ilog2(ncols);
 
     // Physical and logical locations should be parameterized by the same number of state bits.
     static constexpr int num_state_bits = num_rowstate_bits + num_colstate_bits;
@@ -133,25 +160,10 @@ struct MatParams
     bool finalized = false;
 
     
-    MatParams() :
+    MatParamsBase() :
 	pbit_isrow(num_state_bits, false),
 	pbit_lindex(num_state_bits, -1)
     { }
-
-    
-    static __host__ Array<int> make_basis_fragments()
-    {
-	Array<int> ret({num_state_bits+1, int32s_per_fragment}, af_zero);  // on cpu
-	ret.at({0,0}) = 1;
-
-	for (int b = 0; b < num_state_bits; b++) {
-	    int bit_index = bit_depth * (1 << b);
-	    int int32_index = bit_index / 32;
-	    ret.at({b+1,int32_index}) = (1 << (bit_index % 32));
-	}
-    
-	return ret.to_gpu();
-    }
 
     
     void assign_state_bit(int b, bool isrow, int index)
@@ -205,6 +217,9 @@ struct MatParams
     }
 
 
+    // Input: a "physical" index 0 <= pindex < (nrows * ncols).
+    // Output: pair of logical indices 0 <= rindex <= nrows, and 0 <= cindex < ncols.
+    
     __host__ void pindex_to_rc(int pindex, int &rindex, int &cindex) const
     {
 	assert(finalized);
@@ -219,6 +234,9 @@ struct MatParams
     }
     
 
+    // Input: pair of logical indices 0 <= rindex <= nrows, and 0 <= cindex < ncols.
+    // Output: a "physical" index 0 <= pindex < (nrows * ncols).
+    
     __host__ int rc_to_pindex(int rindex, int cindex) const
     {
 	assert(finalized);
@@ -233,24 +251,62 @@ struct MatParams
 
 	return pindex;
     }
+};
 
 
+// -------------------------------------------------------------------------------------------------
+
+
+template<int Nrows, int Ncols, int BitDepth>
+struct MatParamsInt : public MatParamsBase<Nrows, Ncols, BitDepth>
+{
+    using Base = MatParamsBase<Nrows, Ncols, BitDepth>;
+
+    // Array datatype for matrices and fragments, see comment above
+    using Dtype = int;
+    
+    using Base::nrows;
+    using Base::ncols;
+    using Base::bit_depth;
+    using Base::num_state_bits;
+
+    static constexpr int fragment_length = Base::bits_per_fragment / 32;
+
+
+    // Returns 1-d array of length fragment_length.
     __host__ Array<int> make_fragment(int aflags=0) const
     {
-	return Array<int> ({int32s_per_fragment}, aflags);
+	return Array<int> ({fragment_length}, aflags);
     }
 
     
+    // Returns 2-d array of shape (num_state_bits+1, fragment_length).
+    static __host__ Array<int> make_basis_fragments()
+    {
+	Array<int> ret({num_state_bits+1, fragment_length}, af_zero);  // on cpu
+	ret.at({0,0}) = 1;
+
+	for (int b = 0; b < num_state_bits; b++) {
+	    int bit_index = bit_depth * (1 << b);
+	    int int32_index = bit_index / 32;
+	    ret.at({b+1,int32_index}) = (1 << (bit_index % 32));
+	}
+    
+	return ret.to_gpu();
+    }
+
+
+    // Converts (fragment_length,) -> (nrows, ncols)
     __host__ Array<int> unpack_fragment(const Array<int> &src_) const
     {
 	Array<int> src = src_.to_host();
-	assert(src.shape_equals({int32s_per_fragment}));
+	assert(src.shape_equals({fragment_length}));
 	
 	Array<int> dst({nrows, ncols});
 
 	for (int ir = 0; ir < nrows; ir++) {
 	    for (int ic = 0; ic < ncols; ic++) {
-		int p = rc_to_pindex(ir, ic);
+		int p = Base::rc_to_pindex(ir, ic);
 		int j = p / (32/bit_depth);
 		int b = (p*bit_depth) - (32*j);
 
@@ -262,6 +318,7 @@ struct MatParams
     }
 
 
+    // Converts (nrows, ncols) -> (fragment_length,)
     __host__ Array<int> pack_fragment(const Array<int> &src_) const
     {
 	int smax = (1U << (bit_depth-1)) - 1U;
@@ -270,11 +327,11 @@ struct MatParams
 	Array<int> src = src_.to_host();
 	assert(src.shape_equals({nrows, ncols}));
 
-	Array<int> dst({int32s_per_fragment}, af_zero);
+	Array<int> dst({fragment_length}, af_zero);
 
 	for (int ir = 0; ir < nrows; ir++) {
 	    for (int ic = 0; ic < ncols; ic++) {
-		int p = rc_to_pindex(ir, ic);
+		int p = Base::rc_to_pindex(ir, ic);
 		int j = p / (32/bit_depth);
 		int b = (p*bit_depth) - (32*j);
 		
@@ -297,14 +354,24 @@ struct MatParams
 	    Array<int> a = make_fragment(af_random);
 	    Array<int> b = pack_fragment(unpack_fragment(a));
 
-	    assert(a.shape_equals({int32s_per_fragment}));
-	    assert(b.shape_equals({int32s_per_fragment}));
+	    assert(a.shape_equals({fragment_length}));
+	    assert(b.shape_equals({fragment_length}));
 	    
-	    for (int i = 0; i < int32s_per_fragment; i++)
+	    for (int i = 0; i < fragment_length; i++)
 		assert(a.data[i] == b.data[i]);
 	}
-    }
+    }    
 };
+
+
+// -------------------------------------------------------------------------------------------------
+
+
+// template<int Nrows, int Ncols>
+// struct MatParamsFloat16 : MatParamsBase<Nrows, Ncols, 16>
+// {
+//    
+// };
 
 
 // -------------------------------------------------------------------------------------------------
@@ -313,9 +380,9 @@ struct MatParams
 template<void (*F)(int[], const int[], const int[], const int[]), int BitDepth, int M, int N, int K>
 struct MmaParams
 {
-    using AParams = MatParams<M, K, BitDepth>;
-    using BParams = MatParams<K, N, BitDepth>;
-    using CParams = MatParams<M, N, 32>;
+    using AParams = MatParamsInt <M, K, BitDepth>;
+    using BParams = MatParamsInt <K, N, BitDepth>;
+    using CParams = MatParamsInt <M, N, 32>;
 
     AParams aparams;
     BParams bparams;
@@ -330,7 +397,7 @@ struct MmaParams
 	constexpr int nb = BParams::num_state_bits;
 
 	Array<int> cdst = this->run_kernel(AParams::make_basis_fragments(), BParams::make_basis_fragments());
-	assert(cdst.shape_equals({na+1, nb+1, CParams::int32s_per_fragment}));
+	assert(cdst.shape_equals({na+1, nb+1, CParams::fragment_length}));
 
 	Array<int> coupling({na+1,nb+1});
 	for (int i = 0; i < na+1; i++) {
@@ -430,8 +497,8 @@ struct MmaParams
 	
 	assert((asrc.ndim >= 1) && (asrc.ndim <= 2));
 	assert((bsrc.ndim >= 1) && (bsrc.ndim <= 2));
-	assert(asrc.shape[asrc.ndim-1] == AParams::int32s_per_fragment);
-	assert(bsrc.shape[bsrc.ndim-1] == BParams::int32s_per_fragment);
+	assert(asrc.shape[asrc.ndim-1] == AParams::fragment_length);
+	assert(bsrc.shape[bsrc.ndim-1] == BParams::fragment_length);
 	
 	int na = (asrc.ndim > 1) ? asrc.shape[0] : 1;
 	int nb = (bsrc.ndim > 1) ? bsrc.shape[0] : 1;
@@ -441,7 +508,7 @@ struct MmaParams
 	    cshape.push_back(na);
 	if (bsrc.ndim > 1)
 	    cshape.push_back(nb);
-	cshape.push_back(CParams::int32s_per_fragment);
+	cshape.push_back(CParams::fragment_length);
 	
 	Array<int> agpu = asrc.to_gpu();
 	Array<int> bgpu = bsrc.to_gpu();
@@ -452,8 +519,8 @@ struct MmaParams
 	nblocks.y = nb;
 	nblocks.z = 1;
 	
-	mma_kernel<F,Areg,Breg,Creg> <<<nblocks, 32>>> (cdst.data, agpu.data, bgpu.data);
-	CUDA_PEEK("mma_kernel");
+	mma_int_kernel<F,Areg,Breg,Creg> <<<nblocks, 32>>> (cdst.data, agpu.data, bgpu.data);
+	CUDA_PEEK("mma_int_kernel");
 
 	return cdst.to_host();
     }
@@ -481,8 +548,8 @@ struct MmaParams
 	cparams.test_pack_unpack();
 
 	for (int iouter = 0; iouter < 10; iouter++) {
-	    Array<int> asrc({AParams::int32s_per_fragment}, af_random);
-	    Array<int> bsrc({BParams::int32s_per_fragment}, af_random);
+	    Array<int> asrc({AParams::fragment_length}, af_random);
+	    Array<int> bsrc({BParams::fragment_length}, af_random);
 	    
 	    Array<int> cgpu = run_kernel(asrc, bsrc);
 	    cgpu = cparams.unpack_fragment(cgpu);
