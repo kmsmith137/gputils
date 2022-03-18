@@ -1,0 +1,174 @@
+
+[int4, m=8, n=8, k=32]
+    A-matrix
+        b0 <-> j0
+        b1 <-> j1
+        b2 <-> j2
+        t0 <-> j3
+        t1 <-> j4
+        t2 <-> i0
+        t3 <-> i1
+        t4 <-> i2
+    B-matrix
+        b0 <-> j0
+        b1 <-> j1
+        b2 <-> j2
+        t0 <-> j3
+        t1 <-> j4
+        t2 <-> k0
+        t3 <-> k1
+        t4 <-> k2
+    C-matrix
+        t0 <-> k1
+        t1 <-> k2
+        t2 <-> i0
+        t3 <-> i1
+        t4 <-> i2
+        r0 <-> k0
+end_to_end_test: pass
+
+[int4, m=16, n=8, k=32]
+    A-matrix
+        b0 <-> j0
+        b1 <-> j1
+        b2 <-> j2
+        t0 <-> j3
+        t1 <-> j4
+        t2 <-> i0
+        t3 <-> i1
+        t4 <-> i2
+        r0 <-> i3
+    B-matrix
+        b0 <-> j0
+        b1 <-> j1
+        b2 <-> j2
+        t0 <-> j3
+        t1 <-> j4
+        t2 <-> k0
+        t3 <-> k1
+        t4 <-> k2
+    C-matrix
+        t0 <-> k1
+        t1 <-> k2
+        t2 <-> i0
+        t3 <-> i1
+        t4 <-> i2
+        r0 <-> k0
+        r1 <-> i3
+end_to_end_test: pass
+
+[int4, m=16, n=8, k=64]
+    A-matrix
+        b0 <-> j0
+        b1 <-> j1
+        b2 <-> j2
+        t0 <-> j3
+        t1 <-> j4
+        t2 <-> i0
+        t3 <-> i1
+        t4 <-> i2
+        r0 <-> i3
+        r1 <-> j5
+    B-matrix
+        b0 <-> j0
+        b1 <-> j1
+        b2 <-> j2
+        t0 <-> j3
+        t1 <-> j4
+        t2 <-> k0
+        t3 <-> k1
+        t4 <-> k2
+        r0 <-> j5
+    C-matrix
+        t0 <-> k1
+        t1 <-> k2
+        t2 <-> i0
+        t3 <-> i1
+        t4 <-> i2
+        r0 <-> k0
+        r1 <-> i3
+end_to_end_test: pass
+
+[int8, m=8, n=8, k=16]
+    A-matrix
+        b0 <-> j0
+        b1 <-> j1
+        t0 <-> j2
+        t1 <-> j3
+        t2 <-> i0
+        t3 <-> i1
+        t4 <-> i2
+    B-matrix
+        b0 <-> j0
+        b1 <-> j1
+        t0 <-> j2
+        t1 <-> j3
+        t2 <-> k0
+        t3 <-> k1
+        t4 <-> k2
+    C-matrix
+        t0 <-> k1
+        t1 <-> k2
+        t2 <-> i0
+        t3 <-> i1
+        t4 <-> i2
+        r0 <-> k0
+end_to_end_test: pass
+
+[int8, m=16, n=8, k=16]
+    A-matrix
+        b0 <-> j0
+        b1 <-> j1
+        t0 <-> j2
+        t1 <-> j3
+        t2 <-> i0
+        t3 <-> i1
+        t4 <-> i2
+        r0 <-> i3
+    B-matrix
+        b0 <-> j0
+        b1 <-> j1
+        t0 <-> j2
+        t1 <-> j3
+        t2 <-> k0
+        t3 <-> k1
+        t4 <-> k2
+    C-matrix
+        t0 <-> k1
+        t1 <-> k2
+        t2 <-> i0
+        t3 <-> i1
+        t4 <-> i2
+        r0 <-> k0
+        r1 <-> i3
+end_to_end_test: pass
+
+[int8, m=16, n=8, k=32]
+    A-matrix
+        b0 <-> j0
+        b1 <-> j1
+        t0 <-> j2
+        t1 <-> j3
+        t2 <-> i0
+        t3 <-> i1
+        t4 <-> i2
+        r0 <-> i3
+        r1 <-> j4
+    B-matrix
+        b0 <-> j0
+        b1 <-> j1
+        t0 <-> j2
+        t1 <-> j3
+        t2 <-> k0
+        t3 <-> k1
+        t4 <-> k2
+        r0 <-> j4
+    C-matrix
+        t0 <-> k1
+        t1 <-> k2
+        t2 <-> i0
+        t3 <-> i1
+        t4 <-> i2
+        r0 <-> k0
+        r1 <-> i3
+end_to_end_test: pass
