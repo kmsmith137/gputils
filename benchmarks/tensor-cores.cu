@@ -14,6 +14,30 @@ using namespace gputils;
 // float16 MMA
 
 
+__device__ __half2 load_half2(const float *p)
+{
+    float2 a = *((float2 *) p);
+    return __float22half2_rn(a);
+}
+
+
+__device__ void store_half2(float *p, __half2 x)
+{
+    float2 a = __half22float2(x);
+    *((float2 *) p) = a;
+}
+
+
+// The Areg, Breg, Creg template arguments are the number of registers per thread
+// needed to store the A,B,C matrices respectively.
+//
+// The 'asrc' array length is (Areg * nth * 2)
+// The 'bsrc' array length is (Breg * nth * 2).
+// The 'csrc' array length is (Creg * nth * 2).
+//
+// Here, nth = (nblocks * nthreads_per_block) is the total number of threads in the kernel.
+
+
 template<void (*F)(__half2[], const __half2[], const __half2[], const __half2[]), int Areg, int Breg, int Creg>
 __global__ void mma_f16_kernel(float *cdst, const float *asrc, const float *bsrc, int niter)
 {
@@ -21,36 +45,27 @@ __global__ void mma_f16_kernel(float *cdst, const float *asrc, const float *bsrc
     __half2 b[Breg];
     __half2 c[Creg];
 
-    int t0 = blockIdx.x * blockDim.x;
+    int ith = blockIdx.x * blockDim.x + threadIdx.x;
+    int nth = gridDim.x * blockDim.x;
 
     #pragma unroll
-    for (int i = 0; i < Areg; i++) {
-	float x = asrc[t0*2*Areg + (2*i)*blockDim.x + threadIdx.x];
-	float y = asrc[t0*2*Areg + (2*i+1)*blockDim.x + threadIdx.x];
-	a[i] = __floats2half2_rn(x, y);
-    }
+    for (int r = 0; r < Areg; r++)
+	a[r] = load_half2(asrc + r*nth*2 + ith*2);
     
     #pragma unroll
-    for (int i = 0; i < Breg; i++) {
-	float x = bsrc[t0*2*Breg + (2*i)*blockDim.x + threadIdx.x];
-	float y = bsrc[t0*2*Breg + (2*i+1)*blockDim.x + threadIdx.x];
-	b[i] = __floats2half2_rn(x, y);
-    }
+    for (int r = 0; r < Breg; r++)
+	b[r] = load_half2(bsrc + r*nth*2 + ith*2);
     
     #pragma unroll
-    for (int i = 0; i < Creg; i++)
-	c[i] = __floats2half2_rn(0., 0.);  // FIXME
-
+    for (int r = 0; r < Creg; r++)
+	c[r] = __half2half2(0);
     
     for (int i = 0; i < niter; i++)
 	F(c, a, b, c);
     
     #pragma unroll
-    for (int i = 0; i < Creg; i++) {
-	float2 x = __half22float2(c[i]);
-	cdst[t0*2*Creg + (2*i)*blockDim.x + threadIdx.x] = x.x;
-	cdst[t0*2*Creg + (2*i+1)*blockDim.x + threadIdx.x] = x.y;
-    }
+    for (int r = 0; r < Creg; r++)
+	store_half2(cdst + r*nth*2 + ith*2, c[r]);
 }
 
 
@@ -67,18 +82,18 @@ static void time_f16_mma(int niter)
     const int nstreams = 2;
 
     int nth = nblocks * nthreads_per_block;
-    Array<float> asrc({nstreams,2*nth*Areg}, af_zero | af_gpu);
-    Array<float> bsrc({nstreams,2*nth*Breg}, af_zero | af_gpu);
-    Array<float> csrc({nstreams,2*nth*Creg}, af_zero | af_gpu);
+    Array<float> asrc({nstreams,Areg*nth*2}, af_zero | af_gpu);
+    Array<float> bsrc({nstreams,Breg*nth*2}, af_zero | af_gpu);
+    Array<float> csrc({nstreams,Creg*nth*2}, af_zero | af_gpu);
 
     double flops_per_mma = 2*M*N*K;
     double tflops_per_kernel = niter * (nth/32.) * flops_per_mma / pow(2,40.);
 
     auto callback = [&](const CudaStreamPool &pool, cudaStream_t stream, int istream)
 	{
-	    float *a = asrc.data + istream*nth*Areg;
-	    float *b = bsrc.data + istream*nth*Breg;
-	    float *c = csrc.data + istream*nth*Creg;
+	    float *a = asrc.data + istream*Areg*nth*2;
+	    float *b = bsrc.data + istream*Breg*nth*2;
+	    float *c = csrc.data + istream*Creg*nth*2;
 
 	    mma_f16_kernel<F,Areg,Breg,Creg>
 		<<< nblocks, nthreads_per_block, 0, stream >>>
@@ -96,10 +111,19 @@ static void time_f16_mma(int niter)
 }
 
 
-
 // -------------------------------------------------------------------------------------------------
 //
 // int4/int8 MMA
+
+
+// The Areg, Breg, Creg template arguments are the number of registers per thread
+// needed to store the A,B,C matrices respectively.
+//
+// The 'asrc' array length is (Areg * nth)
+// The 'bsrc' array length is (Breg * nth).
+// The 'csrc' array length is (Creg * nth).
+//
+// Here, nth = (nblocks * nthreads_per_block) is the total number of threads in the kernel.
 
 
 template<void (*F)(int[], const int[], const int[], const int[]), int Areg, int Breg, int Creg>
@@ -108,27 +132,28 @@ __global__ void mma_int_kernel(int *cdst, const int *asrc, const int *bsrc, int 
     int a[Areg];
     int b[Breg];
     int c[Creg];
-
-    int t0 = blockIdx.x * blockDim.x;
+    
+    int ith = blockIdx.x * blockDim.x + threadIdx.x;
+    int nth = gridDim.x * blockDim.x;
 
     #pragma unroll
-    for (int i = 0; i < Areg; i++)
-	a[i] = asrc[t0*Areg + i*blockDim.x + threadIdx.x];
+    for (int r = 0; r < Areg; r++)
+	a[r] = asrc[r*nth + ith];
     
     #pragma unroll
-    for (int i = 0; i < Breg; i++)
-	b[i] = bsrc[t0*Breg + i*blockDim.x + threadIdx.x];
+    for (int r = 0; r < Breg; r++)
+	a[r] = bsrc[r*nth + ith];
 
     #pragma unroll
-    for (int i = 0; i < Creg; i++)
-	c[i] = 0;
+    for (int r = 0; r < Creg; r++)
+	c[r] = 0;
 
     for (int i = 0; i < niter; i++)
 	F(c, a, b, c);
     
     #pragma unroll
-    for (int i = 0; i < Breg; i++)
-	cdst[t0*Creg + i*blockDim.x + threadIdx.x] = c[i];
+    for (int r = 0; r < Creg; r++)
+	cdst[r*nth + ith] = c[r];
 }
 
 
@@ -145,18 +170,18 @@ static void time_int_mma(int niter)
     const int nstreams = 2;
 
     int nth = nblocks * nthreads_per_block;
-    Array<int> asrc({nstreams,nth*Areg}, af_zero | af_gpu);
-    Array<int> bsrc({nstreams,nth*Breg}, af_zero | af_gpu);
-    Array<int> csrc({nstreams,nth*Creg}, af_zero | af_gpu);
+    Array<int> asrc({nstreams,Areg*nth}, af_zero | af_gpu);
+    Array<int> bsrc({nstreams,Breg*nth}, af_zero | af_gpu);
+    Array<int> cdst({nstreams,Creg*nth}, af_zero | af_gpu);
 
     double flops_per_mma = 2*M*N*K;
     double tflops_per_kernel = niter * (nth/32.) * flops_per_mma / pow(2,40.);
 
     auto callback = [&](const CudaStreamPool &pool, cudaStream_t stream, int istream)
 	{
-	    int *a = asrc.data + istream*nth*Areg;
-	    int *b = bsrc.data + istream*nth*Breg;
-	    int *c = csrc.data + istream*nth*Creg;
+	    int *a = asrc.data + istream*Areg*nth;
+	    int *b = bsrc.data + istream*Breg*nth;
+	    int *c = cdst.data + istream*Creg*nth;
 
 	    mma_int_kernel<F,Areg,Breg,Creg>
 		<<< nblocks, nthreads_per_block, 0, stream >>>
