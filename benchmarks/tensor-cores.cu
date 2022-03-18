@@ -39,8 +39,12 @@ __device__ void store_half2(float *p, __half2 x)
 
 
 template<void (*F)(__half2[], const __half2[], const __half2[], const __half2[]), int Areg, int Breg, int Creg>
-__global__ void mma_f16_kernel(float *cdst, const float *asrc, const float *bsrc, int niter)
+__global__ void mma_f16_kernel(float *cdst, const float *asrc, const float *bsrc, int niter, int num_active_warps)
 {
+    int warpId = threadIdx.x >> 5;
+    if (warpId >= num_active_warps)
+	return;
+    
     __half2 a[Areg];
     __half2 b[Breg];
     __half2 c[Creg];
@@ -70,15 +74,15 @@ __global__ void mma_f16_kernel(float *cdst, const float *asrc, const float *bsrc
 
 
 template<void (*F)(__half2[], const __half2[], const __half2[], const __half2[]), int M, int N, int K>
-static void time_f16_mma(int niter)
+static void time_f16_mma(int niter, int num_active_warps=32)
 {
     constexpr int Areg = (M*K) / 64;
     constexpr int Breg = (N*K) / 64;
     constexpr int Creg = (M*N) / 64;
     
-    const int nblocks = 82 * 84 * 4;
-    const int nthreads_per_block = 128;
-    const int ncallbacks = 15;
+    const int nblocks = 82 * 84;
+    const int nthreads_per_block = 1024;
+    const int ncallbacks = 10;
     const int nstreams = 2;
 
     int nth = nblocks * nthreads_per_block;
@@ -87,7 +91,7 @@ static void time_f16_mma(int niter)
     Array<float> csrc({nstreams,Creg*nth*2}, af_zero | af_gpu);
 
     double flops_per_mma = 2*M*N*K;
-    double tflops_per_kernel = niter * (nth/32.) * flops_per_mma / pow(2,40.);
+    double tflops_per_kernel = double(niter) * nblocks * num_active_warps * flops_per_mma / pow(2,40.);
 
     auto callback = [&](const CudaStreamPool &pool, cudaStream_t stream, int istream)
 	{
@@ -97,13 +101,16 @@ static void time_f16_mma(int niter)
 
 	    mma_f16_kernel<F,Areg,Breg,Creg>
 		<<< nblocks, nthreads_per_block, 0, stream >>>
-		(c, a, b, niter);
+		(c, a, b, niter, num_active_warps);
 
 	    CUDA_PEEK("mma_f16_kernel");
 	};
 
     stringstream ss;
     ss << "f16 (m=" << M << ", n=" << N << ", k=" << K << ")";
+    
+    if (num_active_warps < 32)
+	ss << " **ACTIVE_WARPS=" << num_active_warps << "**";
     
     CudaStreamPool pool(callback, ncallbacks, nstreams, ss.str());
     pool.monitor_throughput("Tflops", tflops_per_kernel);
@@ -127,8 +134,12 @@ static void time_f16_mma(int niter)
 
 
 template<void (*F)(int[], const int[], const int[], const int[]), int Areg, int Breg, int Creg>
-__global__ void mma_int_kernel(int *cdst, const int *asrc, const int *bsrc, int niter)
+__global__ void mma_int_kernel(int *cdst, const int *asrc, const int *bsrc, int niter, int num_active_warps)
 {
+    int warpId = threadIdx.x >> 5;
+    if (warpId >= num_active_warps)
+	return;
+    
     int a[Areg];
     int b[Breg];
     int c[Creg];
@@ -158,14 +169,14 @@ __global__ void mma_int_kernel(int *cdst, const int *asrc, const int *bsrc, int 
 
 
 template<void (*F)(int[], const int[], const int[], const int[]), int BitDepth, int M, int N, int K>
-static void time_int_mma(int niter)
+static void time_int_mma(int niter, int num_active_warps=32)
 {
     constexpr int Areg = (M*K*BitDepth) / 1024;
     constexpr int Breg = (N*K*BitDepth) / 1024;
     constexpr int Creg = (M*N) / 32;
     
-    const int nblocks = 82 * 84 * 4;
-    const int nthreads_per_block = 128;
+    const int nblocks = 82 * 84;
+    const int nthreads_per_block = 1024;
     const int ncallbacks = 15;
     const int nstreams = 2;
 
@@ -175,7 +186,7 @@ static void time_int_mma(int niter)
     Array<int> cdst({nstreams,Creg*nth}, af_zero | af_gpu);
 
     double flops_per_mma = 2*M*N*K;
-    double tflops_per_kernel = niter * (nth/32.) * flops_per_mma / pow(2,40.);
+    double tflops_per_kernel = double(niter) * nblocks * num_active_warps * flops_per_mma / pow(2,40.);
 
     auto callback = [&](const CudaStreamPool &pool, cudaStream_t stream, int istream)
 	{
@@ -185,13 +196,16 @@ static void time_int_mma(int niter)
 
 	    mma_int_kernel<F,Areg,Breg,Creg>
 		<<< nblocks, nthreads_per_block, 0, stream >>>
-		(c, a, b, niter);
+		(c, a, b, niter, num_active_warps);
 
 	    CUDA_PEEK("mma_int_kernel");
 	};
 
     stringstream ss;
     ss << "int" << BitDepth << " (m=" << M << ", n=" << N << ", k=" << K << ")";
+
+    if (num_active_warps < 32)
+	ss << " **ACTIVE_WARPS=" << num_active_warps << "**";
     
     CudaStreamPool pool(callback, ncallbacks, nstreams, ss.str());
     pool.monitor_throughput("Tflops", tflops_per_kernel);
@@ -199,18 +213,31 @@ static void time_int_mma(int niter)
 }
 
 
+// -------------------------------------------------------------------------------------------------
+
+
+static void time_mmas(int num_active_warps=32)
+{
+    // float16
+    time_f16_mma <mma_f16_m16_n8_k8, 16, 8, 8> (1024*1024/num_active_warps, num_active_warps);
+    time_f16_mma <mma_f16_m16_n8_k16, 16, 8, 16> (512*1024/num_active_warps, num_active_warps);
+
+    // int8
+    time_int_mma <mma_s8_m8_n8_k16, 8, 8, 8, 16> (2048*1024/num_active_warps, num_active_warps);
+    time_int_mma <mma_s8_m16_n8_k16, 8, 16, 8, 16> (1024*1024/num_active_warps, num_active_warps);
+    time_int_mma <mma_s8_m16_n8_k32, 8, 16, 8, 32> (512*1024/num_active_warps, num_active_warps);
+
+    // int4
+    time_int_mma <mma_s4_m8_n8_k32, 4, 8, 8, 32> (2048*1024/num_active_warps, num_active_warps);
+    time_int_mma <mma_s4_m16_n8_k32, 4, 16, 8, 32> (1024*1024/num_active_warps, num_active_warps);
+    time_int_mma <mma_s4_m16_n8_k64, 4, 16, 8, 64> (512*1024/num_active_warps, num_active_warps);
+}
+
+
 int main(int argc, char **argv)
 {
-    time_f16_mma <mma_f16_m16_n8_k8, 16, 8, 8> (256*1024);
-    time_f16_mma <mma_f16_m16_n8_k16, 16, 8, 16> (128*1024);
-		 
-    time_int_mma <mma_s4_m8_n8_k32, 4, 8, 8, 32> (512*1024);
-    time_int_mma <mma_s4_m16_n8_k32, 4, 16, 8, 32> (256*1024);
-    time_int_mma <mma_s4_m16_n8_k64, 4, 16, 8, 64> (128*1024);
-    
-    time_int_mma <mma_s8_m8_n8_k16, 8, 8, 8, 16> (512*1024);
-    time_int_mma <mma_s8_m16_n8_k16, 8, 16, 8, 16> (256*1024);
-    time_int_mma <mma_s8_m16_n8_k32, 8, 16, 8, 32> (128*1024);
+    time_mmas(32);  // full occupancy (32 warps/SM)
+    time_mmas(8);   // low occupancy (8 warps/SM)
     
     return 0;
 }
