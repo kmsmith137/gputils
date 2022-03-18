@@ -21,7 +21,7 @@ using namespace gputils;
 // and 32 threads/block.
 
 
-template<void (*F)(int[], int[], int[], int[]), int Areg, int Breg, int Creg>
+template<void (*F)(int[], const int[], const int[], const int[]), int Areg, int Breg, int Creg>
 __global__ void mma_kernel(int *cdst, const int *asrc, const int *bsrc)
 {
     assert(blockDim.x == 32);
@@ -310,7 +310,7 @@ struct MatParams
 // -------------------------------------------------------------------------------------------------
 
 
-template<void (*F)(int[], int[], int[], int[]), int BitDepth, int M, int N, int K>
+template<void (*F)(int[], const int[], const int[], const int[]), int BitDepth, int M, int N, int K>
 struct MmaParams
 {
     using AParams = MatParams<M, K, BitDepth>;
@@ -502,7 +502,7 @@ struct MmaParams
 // -------------------------------------------------------------------------------------------------
 
 
-template<void (*F)(int[], int[], int[], int[]), int BitDepth, int M, int N, int K>
+template<void (*F)(int[], const int[], const int[], const int[]), int BitDepth, int M, int N, int K>
 static void reverse_engineer()
 {
     MmaParams<F, BitDepth, M, N, K> params;
