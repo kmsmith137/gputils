@@ -13,9 +13,8 @@ using namespace gputils;
 
 // -------------------------------------------------------------------------------------------------
 //
-// __global__ kernels
-
-
+// __global__ kernel for int4/int8 MMAs.
+//
 // The 'asrc' array shape is (na, 32*Areg).
 // The 'bsrc' array shape is (nb, 32*Breg).
 // The 'cdst' array shape is (na, nb, 32*Creg)
@@ -57,11 +56,63 @@ __global__ void mma_int_kernel(int *cdst, const int *asrc, const int *bsrc)
 }
 
 
-template<void (*F)(__half2[], const __half2[], const __half2[], const __half2[]), int Areg, int Breg, int Creg>
-__global__ void mma_float16_kernel(float *cdst, const int *asrc, const int *bsrc)
+// -------------------------------------------------------------------------------------------------
+//
+// __global__ kernel for float16 MMAs
+//
+// The 'asrc' array shape is (na, 64*Areg).
+// The 'bsrc' array shape is (nb, 64*Breg).
+// The 'cdst' array shape is (na, nb, 64*Creg)
+//
+// This kernel should be launched with (nblocks_x, nblocks_y) = (na, nb),
+// and 32 threads/block.
+
+
+__device__ __half2 load_half2(const float *p)
 {
-    // FIXME placeholder
-    return;
+    float2 a = *((float2 *) p);
+    return __float22half2_rn(a);
+}
+
+
+__device__ void store_half2(float *p, __half2 x)
+{
+    float2 a = __half22float2(x);
+    *((float2 *) p) = a;
+}
+
+
+template<void (*F)(__half2[], const __half2[], const __half2[], const __half2[]), int Areg, int Breg, int Creg>
+__global__ void mma_float16_kernel(float *cdst, const float *asrc, const float *bsrc)
+{
+    assert(blockDim.x == 32);
+
+    int ia = blockIdx.x;
+    int ib = blockIdx.y;
+    int nb = gridDim.y;
+    int laneId = threadIdx.x;
+
+    // Add block offsets
+    // Note 64 here (whereas 32 in mma_int32_kernel() above)
+    asrc += ia * 64 * Areg;
+    bsrc += ib * 64 * Breg;
+    cdst += (ia*nb + ib) * 64 * Creg;
+
+    __half2 afrag[Areg];
+    __half2 bfrag[Breg];
+    __half2 cfrag[Creg];
+
+    for (int r = 0; r < Areg; r++)
+	afrag[r] = load_half2(asrc + 64*r + 2*laneId);
+    for (int r = 0; r < Breg; r++)
+	bfrag[r] = load_half2(bsrc + 64*r + 2*laneId);
+    for (int r = 0; r < Creg; r++)
+	cfrag[r] = __half2half2(0);
+
+    F(cfrag, afrag, bfrag, cfrag);
+
+    for (int r = 0; r < Creg; r++)
+	store_half2(cdst + 64*r + 2*laneId, cfrag[r]);
 }
 
 
@@ -138,6 +189,13 @@ __host__ Array<T> slow_matmul(const Array<T> &a_, const Array<T> &b_)
 //        unpack_fragment()
 //        pack_fragment()
 //        test_pack_unpack()
+//
+// !!! IMPORTANT NOTE !!!
+//
+//    Throughout the code, the ordering of "physical" bits is:
+//      - b (position within a register)
+//      - t (thread id)
+//      - r (register within a thread)
 
 
 template<int Nrows, int Ncols, int BitDepth>
@@ -392,6 +450,7 @@ struct MatParamsFloat16 : MatParamsBase<Nrows, Ncols, 16>
     using Base::num_state_bits;
 
     static constexpr int fragment_length = nrows * ncols;
+    static_assert(fragment_length == 64 * Base::registers_per_thread);
 
 
     // Returns 1-d array of length fragment_length.
@@ -487,6 +546,9 @@ template<typename Dtype,   // either int or float
 	 typename CParams>    // MatParams for C-factor
 struct MmaParams
 {
+    const string name;
+    const int verbosity;
+    
     AParams aparams;
     BParams bparams;
     CParams cparams;
@@ -500,7 +562,9 @@ struct MmaParams
     static constexpr int K = AParams::ncols;
 
     
-    MmaParams() { }
+    MmaParams(const string &name_, int verbosity_=0)
+	: name(name_), verbosity(verbosity_)
+    { }
 
     
     Array<Dtype> run_kernel(const Array<Dtype> &asrc, const Array<Dtype> &bsrc) const
@@ -530,7 +594,7 @@ struct MmaParams
 	nblocks.z = 1;
 	
 	Kernel <<<nblocks, 32>>> (cdst.data, agpu.data, bgpu.data);
-	CUDA_PEEK("mma_kernel");  // FIXME name
+	CUDA_PEEK(name.c_str());
 
 	return cdst.to_host();
     }
@@ -561,14 +625,14 @@ struct MmaParams
 	    }
 	}
 	
-#if 0
-	cout << "Coupling matrix\n";
-	for (int i = 0; i < na+1; i++) {
-	    for (int j = 0; j < nb+1; j++)
-		cout << "  " << coupling.at({i,j});
-	    cout << endl;
+	if (verbosity >= 1) {
+	    cout << "Coupling matrix: " << name << endl;
+	    for (int i = 0; i < na+1; i++) {
+		for (int j = 0; j < nb+1; j++)
+		    cout << "  " << coupling.at({i,j});
+		cout << endl;
+	    }
 	}
-#endif
 	    
 	assert(coupling.at({0,0}) == 0);
 	
@@ -635,9 +699,9 @@ struct MmaParams
     }
 
     
-    void show_layout(const string &name) const
+    void show_layout() const
     {
-	cout << "\n[" << name << ", m=" << M << ", n=" << N << ", k=" << K << "]" << endl;
+	cout << "\n[" << name << "]" << endl;
 
 	cout << "    A-matrix\n";
 	aparams.show_layout("i", "j");
@@ -668,7 +732,7 @@ struct MmaParams
 	    Array<Dtype> cu = slow_matmul(au, bu);
 
 	    // Use 'epsabs', 'epsrel' values appropriate for float16.
-	    assert_arrays_equal(cu, cgpu, "cpu", "gpu", {"row","col"}, 0.01, 0.01);
+	    assert_arrays_equal(cu, cgpu, "cpu", "gpu", {"row","col"}, 0.01, 0.01, 15, (verbosity >= 2));
 	}
 
 	cout << "end_to_end_test: pass" << endl;
@@ -680,7 +744,7 @@ struct MmaParams
 
 
 template<void (*F)(int[], const int[], const int[], const int[]), int BitDepth, int M, int N, int K>
-static void reverse_engineer()
+static void reverse_engineer_int_mma()
 {
     using AParams = MatParamsInt <M, K, BitDepth>;
     using BParams = MatParamsInt <K, N, BitDepth>;
@@ -691,24 +755,48 @@ static void reverse_engineer()
     constexpr int Creg = CParams::registers_per_thread;
 
     stringstream name;
-    name << "int" << BitDepth;
-    
-    MmaParams<int, mma_int_kernel<F,Areg,Breg,Creg>, AParams, BParams, CParams> params;
+    name << "int" << BitDepth << ", m=" << M << ", n=" << N << ", k=" << K;
+
+    MmaParams<int, mma_int_kernel<F,Areg,Breg,Creg>, AParams, BParams, CParams> params(name.str());
     params.reverse_engineer();
-    params.show_layout(name.str());
+    params.show_layout();
+    params.end_to_end_test();
+}
+
+
+template<void (*F)(__half2[], const __half2[], const __half2[], const __half2[]), int M, int N, int K>
+static void reverse_engineer_float16_mma()
+{
+    using AParams = MatParamsFloat16 <M, K>;
+    using BParams = MatParamsFloat16 <K, N>;
+    using CParams = MatParamsFloat16 <M, N>;
+    
+    constexpr int Areg = AParams::registers_per_thread;
+    constexpr int Breg = BParams::registers_per_thread;
+    constexpr int Creg = CParams::registers_per_thread;
+
+    stringstream name;
+    name << "float16, m=" << M << ", n=" << N << ", k=" << K;
+
+    MmaParams<float, mma_float16_kernel<F,Areg,Breg,Creg>, AParams, BParams, CParams> params(name.str());
+    params.reverse_engineer();
+    params.show_layout();
     params.end_to_end_test();
 }
 
 
 int main(int argc, char **argv)
 {
-    reverse_engineer <mma_s4_m8_n8_k32, 4, 8, 8, 32> ();
-    reverse_engineer <mma_s4_m16_n8_k32, 4, 16, 8, 32> ();
-    reverse_engineer <mma_s4_m16_n8_k64, 4, 16, 8, 64> ();
+    reverse_engineer_float16_mma <mma_f16_m16_n8_k8, 16, 8, 8> ();
+    reverse_engineer_float16_mma <mma_f16_m16_n8_k16, 16, 8, 16> ();
+	
+    reverse_engineer_int_mma <mma_s4_m8_n8_k32, 4, 8, 8, 32> ();
+    reverse_engineer_int_mma <mma_s4_m16_n8_k32, 4, 16, 8, 32> ();
+    reverse_engineer_int_mma <mma_s4_m16_n8_k64, 4, 16, 8, 64> ();
     
-    reverse_engineer <mma_s8_m8_n8_k16, 8, 8, 8, 16> ();
-    reverse_engineer <mma_s8_m16_n8_k16, 8, 16, 8, 16> ();
-    reverse_engineer <mma_s8_m16_n8_k32, 8, 16, 8, 32> ();
+    reverse_engineer_int_mma <mma_s8_m8_n8_k16, 8, 8, 8, 16> ();
+    reverse_engineer_int_mma <mma_s8_m16_n8_k16, 8, 16, 8, 16> ();
+    reverse_engineer_int_mma <mma_s8_m16_n8_k32, 8, 16, 8, 32> ();
     
     return 0;
 }

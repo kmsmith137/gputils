@@ -1,4 +1,58 @@
 
+[float16, m=16, n=8, k=8]
+    A-matrix
+        b0 <-> j0
+        t0 <-> j1
+        t1 <-> j2
+        t2 <-> i0
+        t3 <-> i1
+        t4 <-> i2
+        r0 <-> i3
+    B-matrix
+        b0 <-> j0
+        t0 <-> j1
+        t1 <-> j2
+        t2 <-> k0
+        t3 <-> k1
+        t4 <-> k2
+    C-matrix
+        b0 <-> k0
+        t0 <-> k1
+        t1 <-> k2
+        t2 <-> i0
+        t3 <-> i1
+        t4 <-> i2
+        r0 <-> i3
+end_to_end_test: pass
+
+[float16, m=16, n=8, k=16]
+    A-matrix
+        b0 <-> j0
+        t0 <-> j1
+        t1 <-> j2
+        t2 <-> i0
+        t3 <-> i1
+        t4 <-> i2
+        r0 <-> i3
+        r1 <-> j3
+    B-matrix
+        b0 <-> j0
+        t0 <-> j1
+        t1 <-> j2
+        t2 <-> k0
+        t3 <-> k1
+        t4 <-> k2
+        r0 <-> j3
+    C-matrix
+        b0 <-> k0
+        t0 <-> k1
+        t1 <-> k2
+        t2 <-> i0
+        t3 <-> i1
+        t4 <-> i2
+        r0 <-> i3
+end_to_end_test: pass
+
 [int4, m=8, n=8, k=32]
     A-matrix
         b0 <-> j0
