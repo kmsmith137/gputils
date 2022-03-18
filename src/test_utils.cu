@@ -64,7 +64,8 @@ T assert_arrays_equal(const Array<T> &arr1,
 		      const vector<string> &axis_names,
 		      float epsabs,
 		      float epsrel,
-		      ssize_t max_display)
+		      ssize_t max_display,
+		      bool verbose)
 {
     assert(arr1.shape_equals(arr2));
     assert(axis_names.size() == arr1.ndim);
@@ -87,14 +88,18 @@ T assert_arrays_equal(const Array<T> &arr1,
 	    thresh = epsabs + 0.5*epsrel * (std::abs(x) + std::abs(y));
 
 	maxdiff = max(maxdiff, delta);
+	bool failed = (delta > thresh);
 	
-	if (delta <= thresh)
+	if (!failed && !verbose)
 	    continue;
 
-	if (nfail == 0)
+	if (failed && (nfail == 0))
 	    cout << "\nassert_arrays_equal() failed [shape=" << arr1.shape_str() << "]\n";
 
-	if (nfail++ >= max_display)
+	if (failed)
+	    nfail++;
+	
+	if ((nfail >= max_display) || !verbose)
 	    continue;
 	
 	cout << "   ";
@@ -102,15 +107,20 @@ T assert_arrays_equal(const Array<T> &arr1,
 	    cout << " " << axis_names[d] << "=" << ix[d];
 
 	cout << ": " << name1 << "=" << x << ", " << name2
-	     << "=" << y << "  [delta=" << delta << "]\n";
+	     << "=" << y << "  [delta=" << delta << "]";
+
+	if (failed)
+	    cout << " FAILED";
+
+	cout << "\n";
     }
     
-    if (nfail > max_display)
-	cout << "        [ + " << (nfail-max_display) << " failures]\n";
-
+    if ((nfail > max_display) && !verbose)
+	cout << "        [ + " << (nfail-max_display) << " more failures]\n";
+    
     if (nfail > 0)
 	exit(1);
-
+    
     return maxdiff;
 }
 
@@ -124,7 +134,9 @@ T assert_arrays_equal(const Array<T> &arr1,
 	const vector<string> &axis_names,   \
 	float epsabs,                       \
 	float epsrel,                       \
-	ssize_t max_display)
+	ssize_t max_display, 	            \
+	bool verbose);
+
 
 
 INSTANTIATE_ASSERT_ARRAYS_EQUAL(float);

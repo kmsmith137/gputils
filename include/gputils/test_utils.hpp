@@ -31,7 +31,8 @@ extern T assert_arrays_equal(const Array<T> &arr1,
 			     const std::vector<std::string> &axis_names,
 			     float epsabs = 3.0e-5,
 			     float epsrel = 1.0e-5,
-			     ssize_t max_display = 15);
+			     ssize_t max_display = 15,
+			     bool verbose = false);
 
 
 }  // namespace test_utils
