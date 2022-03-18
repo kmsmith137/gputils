@@ -367,11 +367,102 @@ struct MatParamsInt : public MatParamsBase<Nrows, Ncols, BitDepth>
 // -------------------------------------------------------------------------------------------------
 
 
-// template<int Nrows, int Ncols>
-// struct MatParamsFloat16 : MatParamsBase<Nrows, Ncols, 16>
-// {
-//    
-// };
+template<int Nrows, int Ncols>
+struct MatParamsFloat16 : MatParamsBase<Nrows, Ncols, 16>
+{
+    using Base = MatParamsBase<Nrows, Ncols, 16>;
+
+    // Array datatype for matrices and fragments, see comment above
+    using Dtype = float;
+    
+    using Base::nrows;
+    using Base::ncols;
+    using Base::num_state_bits;
+
+    static constexpr int fragment_length = nrows * ncols;
+
+
+    // Returns 1-d array of length fragment_length.
+    __host__ Array<float> make_fragment(int aflags=0) const
+    {
+	return Array<float> ({fragment_length}, aflags);
+    }
+
+    
+    // Returns 2-d array of shape (num_state_bits+1, fragment_length).
+    static __host__ Array<float> make_basis_fragments()
+    {
+	Array<float> ret({num_state_bits+1, fragment_length}, af_zero);  // on cpu
+	ret.at({0,0}) = 1.0;
+
+	for (int b = 0; b < num_state_bits; b++)
+	    ret.at({b+1,1<<b}) = 1.0;
+    
+	return ret.to_gpu();
+    }
+
+
+    // Converts (fragment_length,) -> (nrows, ncols)
+    __host__ Array<float> unpack_fragment(const Array<float> &src_) const
+    {
+	Array<float> src = src_.to_host();
+	assert(src.shape_equals({fragment_length}));
+	
+	Array<float> dst({nrows, ncols});
+
+	for (int ir = 0; ir < nrows; ir++) {
+	    for (int ic = 0; ic < ncols; ic++) {
+		int p = Base::rc_to_pindex(ir, ic);
+		dst.at({ir,ic}) = src.at({p});
+	    }
+	}
+
+	return dst;
+    }
+
+
+    // Converts (nrows, ncols) -> (fragment_length,)
+    __host__ Array<float> pack_fragment(const Array<float> &src_) const
+    {
+	Array<float> src = src_.to_host();
+	assert(src.shape_equals({nrows, ncols}));
+
+	Array<float> dst({fragment_length}, af_zero);
+
+	for (int ir = 0; ir < nrows; ir++) {
+	    for (int ic = 0; ic < ncols; ic++) {
+		int p = Base::rc_to_pindex(ir, ic);
+		dst.at({p}) = src.at({ir,ic});
+	    }
+	}
+
+	return dst;
+    }
+};
+
+
+// -------------------------------------------------------------------------------------------------
+//
+// A little unit test for MatParams{Int,Float16}.
+
+
+template<typename MatParams>
+void test_pack_unpack(const MatParams &params)
+{
+    constexpr int fragment_length = MatParams::fragment_length;
+    
+    for (int iouter = 0; iouter < 10; iouter++) {
+	// Declared 'auto' since Array<MatParams::Dtype> gave an incomprehensible compiler error.
+	auto a = params.make_fragment(af_random);
+	auto b = params.pack_fragment(params.unpack_fragment(a));
+	
+	assert(a.shape_equals({fragment_length}));
+	assert(b.shape_equals({fragment_length}));
+	
+	for (int i = 0; i < fragment_length; i++)
+	    assert(a.data[i] == b.data[i]);
+    }
+}
 
 
 // -------------------------------------------------------------------------------------------------
@@ -543,9 +634,9 @@ struct MmaParams
 
     void end_to_end_test() const
     {
-	aparams.test_pack_unpack();
-	bparams.test_pack_unpack();
-	cparams.test_pack_unpack();
+	test_pack_unpack(aparams);
+	test_pack_unpack(bparams);
+	test_pack_unpack(cparams);
 
 	for (int iouter = 0; iouter < 10; iouter++) {
 	    Array<int> asrc({AParams::fragment_length}, af_random);
