@@ -219,6 +219,99 @@ static void time_int_mma(int niter, int num_active_warps=32)
 
 
 // -------------------------------------------------------------------------------------------------
+
+
+// The Areg, Breg, Creg template arguments are the number of registers per thread
+// needed to store the A,B,C matrices respectively.
+//
+// The 'asrc' array length is (Areg * nth * 2)
+// The 'bsrc' array length is (Breg * nth * 2).
+// The 'csrc' array length is (Creg * nth * 2).
+//
+// Here, nth = (nblocks * nthreads_per_block) is the total number of threads in the kernel.
+
+
+template<void (*F)(__half2[], const __half2[], const __half2[], const __half2[], unsigned int), int Areg, int Breg, int Creg>
+__global__ void mma_sparse_f16_kernel(float *cdst, const float *asrc, const float *bsrc, int niter, int num_active_warps)
+{
+    int warpId = threadIdx.x >> 5;
+    if (warpId >= num_active_warps)
+	return;
+    
+    __half2 a[Areg];
+    __half2 b[Breg];
+    __half2 c[Creg];
+
+    int ith = blockIdx.x * blockDim.x + threadIdx.x;
+    int nth = gridDim.x * blockDim.x;
+
+    #pragma unroll
+    for (int r = 0; r < Areg; r++)
+	a[r] = load_half2(asrc + r*nth*2 + ith*2);
+    
+    #pragma unroll
+    for (int r = 0; r < Breg; r++)
+	b[r] = load_half2(bsrc + r*nth*2 + ith*2);
+    
+    #pragma unroll
+    for (int r = 0; r < Creg; r++)
+	c[r] = __half2half2(0);
+    
+    for (int i = 0; i < niter; i++)
+	F(c, a, b, c, 0);  // Note 0 here for sparse arg
+    
+    #pragma unroll
+    for (int r = 0; r < Creg; r++)
+	store_half2(cdst + r*nth*2 + ith*2, c[r]);
+}
+
+
+template<void (*F)(__half2[], const __half2[], const __half2[], const __half2[], unsigned int), int M, int N, int K>
+static void time_sparse_f16_mma(int niter, int num_active_warps=32)
+{
+    constexpr int Areg = (M*K) / 128;  // note 128 here
+    constexpr int Breg = (N*K) / 64;
+    constexpr int Creg = (M*N) / 64;
+    
+    const int nblocks = 82 * 84;
+    const int nthreads_per_block = 1024;
+    const int ncallbacks = 10;
+    const int nstreams = 2;
+
+    int nth = nblocks * nthreads_per_block;
+    Array<float> asrc({nstreams,Areg*nth*2}, af_zero | af_gpu);
+    Array<float> bsrc({nstreams,Breg*nth*2}, af_zero | af_gpu);
+    Array<float> csrc({nstreams,Creg*nth*2}, af_zero | af_gpu);
+
+    double flops_per_mma = 2*M*N*K;   // nvidia's definition of sparse flops
+    double tflops_per_kernel = double(niter) * nblocks * num_active_warps * flops_per_mma / pow(2,40.);
+
+    auto callback = [&](const CudaStreamPool &pool, cudaStream_t stream, int istream)
+	{
+	    float *a = asrc.data + istream*Areg*nth*2;
+	    float *b = bsrc.data + istream*Breg*nth*2;
+	    float *c = csrc.data + istream*Creg*nth*2;
+
+	    mma_sparse_f16_kernel<F,Areg,Breg,Creg>
+		<<< nblocks, nthreads_per_block, 0, stream >>>
+		(c, a, b, niter, num_active_warps);
+
+	    CUDA_PEEK("sparse_mma_f16_kernel");
+	};
+
+    stringstream ss;
+    ss << "sparse f16 (m=" << M << ", n=" << N << ", k=" << K << ")";
+    
+    if (num_active_warps < 32)
+	ss << " **ACTIVE_WARPS=" << num_active_warps << "**";
+    
+    CudaStreamPool pool(callback, ncallbacks, nstreams, ss.str());
+    pool.monitor_throughput("Tflops", tflops_per_kernel);
+    pool.run();
+}
+
+
+// -------------------------------------------------------------------------------------------------
 //
 // C++ WMMA kernel
 
@@ -316,6 +409,10 @@ static void time_mmas(int num_active_warps=32)
 
     // C++ int4
     time_cpp_int4_mma(2048*1024/num_active_warps, num_active_warps);
+
+    // Sparse f16
+    time_sparse_f16_mma <mma_sp_f16_m16_n8_k16<0>, 16, 8, 16> (1024*1024/num_active_warps, num_active_warps);
+    time_sparse_f16_mma <mma_sp_f16_m16_n8_k32<0>, 16, 8, 32> (512*1024/num_active_warps, num_active_warps);
     
     // The PTX ISA includes f16 m8n8k4 MMAs.
     // I tried generating wrappers for these, but timing showed that they were extremely slow.

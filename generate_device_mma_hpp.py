@@ -2,46 +2,64 @@
 
 
 class Argument:
-    def __init__(self, name, cuda_type, num_registers, const=False, is_array=True, ptx_type=None, is_braced=True):
+    def __init__(self, name, cuda_type, num_registers, is_const=False, pack=True, ptx_type=None, is_scalar=False, is_immediate=False):
         self.name = name
         self.cuda_type = cuda_type
         self.num_registers = num_registers
-        self.const = const
-        self.is_array = is_array
+        self.is_const = is_const
+        self.pack = pack
         self.ptx_type = ptx_type
-        self.is_braced = is_braced
+        self.is_scalar = is_scalar
+        self.is_immediate = is_immediate
 
+        if is_immediate:
+            assert is_const and is_scalar and (ptx_type is None)
+
+        if is_scalar:
+            assert (not pack) and (num_registers == 1)
         
+
+    def make_template_arglist(self):
+        return [ f'{self.cuda_type} {self.name}' ] if self.is_immediate else [ ]
+
+    
     def make_cuda_arglist(self):
-        if self.is_array:
-            cv = 'const ' if self.const else ''
-            return [ f'{cv}{self.cuda_type} {self.name}[{self.num_registers}]' ]
-
-        ret = [ ]
-        for i in range(self.num_registers):
-            cv = '' if self.const else '&'
-            ret.append(f'{cuda_type} {cv}{self.name}{i}')
+        amp = '' if self.is_const else '&'
+        cv = 'const ' if self.is_const else ''
         
-        return ret
+        if self.is_immediate:
+            return [ ]
+        elif self.is_scalar:
+            return [ f'{self.cuda_type} {amp}{self.name}' ]
+        elif self.pack:
+            return [ f'{cv}{self.cuda_type} {self.name}[{self.num_registers}]' ]
+        else:
+            return [ f'{self.cuda_type} {cv}{self.name}{i}' for i in range(self.num_registers) ]
 
 
     def make_ptx_argstr(self, base):
         t = [ f'%{i}' for i in range(base, base + self.num_registers) ]
         t = ', '.join(t)
-        if self.is_braced:
+        if not self.is_scalar:
             t =  '{' + t + '}'
         return t
 
 
     def make_constraint_str(self):
+        cv = 'const ' if self.is_const else ''
+        constraint = '"r"' if self.is_const else '"=r"'
+
+        if self.is_immediate:
+            return f'"n" ({self.name})'
+
+        if self.is_scalar:
+            return f'{constraint} ({self.name})'
+            
         ret = [ ]
         for i in range(self.num_registers):
-            v = f'{self.name}[{i}]' if self.is_array else f'{self.name}{i}'
+            v = f'{self.name}[{i}]' if self.pack else f'{self.name}{i}'
             if self.ptx_type is not None:
-                cv = 'const ' if self.const else ''
                 v = f'*({cv}{self.ptx_type} *) &{v}'
-                
-            constraint = '"r"' if self.const else '"=r"'
             ret.append(f'{constraint} ({v})')
 
         return ', '.join(ret)
@@ -51,14 +69,22 @@ class Argument:
 
 
 def emit_kernel(cuda_name, ptx_name, *args):
+    template_arglist = [ ]
     cuda_arglist = [ ]
+    
     for arg in args:
+        template_arglist += arg.make_template_arglist()
         cuda_arglist += arg.make_cuda_arglist()
 
+    template_argstr = ', '.join(template_arglist)
     cuda_argstr = ', '.join(cuda_arglist)
     
     print(f'')
     print(f'// D = A*B + C')
+
+    if len(template_arglist) > 0:
+        print(f'template<{template_argstr}>')
+    
     print(f'__device__ __forceinline__')
     print(f'void {cuda_name}({cuda_argstr})')
     print(f'{{')
@@ -99,9 +125,9 @@ def emit_dense_mma(cuda_name, ptx_name, cuda_type, dbits, sbits, m, n, k, ptx_ty
         cuda_name,
         ptx_name,
         Argument('d', cuda_type, nc, ptx_type=ptx_type),
-        Argument('a', cuda_type, na, ptx_type=ptx_type, const=True),
-        Argument('b', cuda_type, nb, ptx_type=ptx_type, const=True),
-        Argument('c', cuda_type, nc, ptx_type=ptx_type, const=True)
+        Argument('a', cuda_type, na, ptx_type=ptx_type, is_const=True),
+        Argument('b', cuda_type, nb, ptx_type=ptx_type, is_const=True),
+        Argument('c', cuda_type, nc, ptx_type=ptx_type, is_const=True)
     )
 
 
@@ -123,6 +149,28 @@ def emit_dense_int_mma(sbits, m, n, k):
     cuda_name = f'mma_s{sbits}_m{m}_n{n}_k{k}'
     ptx_name = f'mma.sync.aligned.m{m}n{n}k{k}.row.col.satfinite.s32.s{sbits}.s{sbits}.s32'
     emit_dense_mma(cuda_name, ptx_name, 'int', 32, sbits, m, n, k)
+
+
+def emit_sparse_f16_mma(m, n, k):
+    cuda_name = f'mma_sp_f16_m{m}_n{n}_k{k}'
+    ptx_name = f'mma.sp.sync.aligned.m{m}n{n}k{k}.row.col.f16.f16.f16.f16'
+
+    # Register counts
+    na = (m*k) // 128
+    nb = (k*n) // 64
+    nc = (m*n) // 64
+
+    emit_kernel(
+        cuda_name,
+        ptx_name,
+        Argument('d', '__half2', nc, ptx_type='unsigned int'),
+        Argument('a', '__half2', na, ptx_type='unsigned int', is_const=True),
+        Argument('b', '__half2', nb, ptx_type='unsigned int', is_const=True),
+        Argument('c', '__half2', nc, ptx_type='unsigned int', is_const=True),
+        Argument('e', 'unsigned int', 1, pack=False, is_scalar=True, is_const=True),
+        Argument('F', 'unsigned int', 1, pack=False, is_scalar=True, is_const=True, is_immediate=True)
+    )
+
     
 
 ####################################################################################################
@@ -156,6 +204,9 @@ if __name__ == '__main__':
     emit_dense_int_mma(8, 16, 8, 16)
     emit_dense_int_mma(8, 16, 8, 32)
 
+    emit_sparse_f16_mma(16, 8, 16)
+    emit_sparse_f16_mma(16, 8, 32)
+
     # The PTX ISA includes f16 m8n8k4 MMAs.
     # I tried generating wrappers for these, but timing showed that they were extremely slow.
     # I assume these MMAs are legacy instructions which are emulated on Ampere.
@@ -169,4 +220,3 @@ if __name__ == '__main__':
     print(f'}} // namespace gputils')
     print(f'')
     print(f'#endif // _GPUTILS_DEVICE_MMA_HPP')
-
