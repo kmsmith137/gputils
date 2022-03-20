@@ -78,12 +78,12 @@ __global__ void mma_f16_kernel(float *cdst, const float *asrc, const float *bsrc
 }
 
 
-template<void (*F)(__half2[], const __half2[], const __half2[], const __half2[]), int M, int N, int K>
+template<void (*F)(__half2[], const __half2[], const __half2[], const __half2[]), int M, int N, int K, int S=1>
 static void time_f16_mma(int niter, int num_active_warps=32)
 {
-    constexpr int Areg = (M*K) / 64;
-    constexpr int Breg = (N*K) / 64;
-    constexpr int Creg = (M*N) / 64;
+    constexpr int Areg = (M*K*S) / 64;
+    constexpr int Breg = (N*K*S) / 64;
+    constexpr int Creg = (M*N*S) / 64;
     
     const int nblocks = 82 * 84;
     const int nthreads_per_block = 1024;
@@ -95,7 +95,7 @@ static void time_f16_mma(int niter, int num_active_warps=32)
     Array<float> bsrc({nstreams,Breg*nth*2}, af_zero | af_gpu);
     Array<float> csrc({nstreams,Creg*nth*2}, af_zero | af_gpu);
 
-    double flops_per_mma = 2*M*N*K;
+    double flops_per_mma = 2*M*N*K*S;
     double tflops_per_kernel = double(niter) * nblocks * num_active_warps * flops_per_mma / pow(2,40.);
 
     auto callback = [&](const CudaStreamPool &pool, cudaStream_t stream, int istream)
@@ -316,6 +316,16 @@ static void time_mmas(int num_active_warps=32)
 
     // C++ int4
     time_cpp_int4_mma(2048*1024/num_active_warps, num_active_warps);
+    
+    // The PTX ISA includes f16 m8n8k4 MMAs.
+    // I tried generating wrappers for these, but timing showed that they were extremely slow.
+    // I assume these MMAs are legacy instructions which are emulated on Ampere.
+    // I left commented-out code here, and in ../generate_device_mma_hpp.py in case I ever want to revisit this.
+    //
+    // time_f16_mma <mma_f16_m8_n8_k4_rr, 8, 8, 4, 4> (1024*1024/num_active_warps, num_active_warps);
+    // time_f16_mma <mma_f16_m8_n8_k4_rc, 8, 8, 4, 4> (1024*1024/num_active_warps, num_active_warps);
+    // time_f16_mma <mma_f16_m8_n8_k4_cr, 8, 8, 4, 4> (1024*1024/num_active_warps, num_active_warps);
+    // time_f16_mma <mma_f16_m8_n8_k4_cc, 8, 8, 4, 4> (1024*1024/num_active_warps, num_active_warps);
 }
 
 

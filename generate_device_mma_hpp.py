@@ -89,11 +89,11 @@ def emit_kernel(cuda_name, ptx_name, *args):
 ####################################################################################################
 
     
-def emit_dense_mma(cuda_name, ptx_name, cuda_type, dbits, sbits, m, n, k, ptx_type=None):
+def emit_dense_mma(cuda_name, ptx_name, cuda_type, dbits, sbits, m, n, k, ptx_type=None, s=1):
     # Register counts
-    na = (m*k*sbits) // 1024
-    nb = (k*n*sbits) // 1024
-    nc = (m*n*dbits) // 1024
+    na = (m*k*s*sbits) // 1024
+    nb = (k*n*s*sbits) // 1024
+    nc = (m*n*s*dbits) // 1024
 
     emit_kernel(
         cuda_name,
@@ -105,10 +105,18 @@ def emit_dense_mma(cuda_name, ptx_name, cuda_type, dbits, sbits, m, n, k, ptx_ty
     )
 
 
-def emit_dense_f16_mma(m, n, k):
+def emit_dense_f16_mma(m, n, k, s=1, layout=None):
+    """The 'layout' parameter is only used for m8n8k4, and is a string pair such as ('row','col')."""
+    
     cuda_name = f'mma_f16_m{m}_n{n}_k{k}'
-    ptx_name = f'mma.sync.aligned.m{m}n{n}k{k}.row.col.f16.f16.f16.f16'
-    emit_dense_mma(cuda_name, ptx_name, '__half2', 16, 16, m, n, k, ptx_type='unsigned int')
+    if layout is not None:
+        cuda_name = f'{cuda_name}_{layout[0][0]}{layout[1][0]}'
+
+    a = 'row' if (layout is None) else layout[0]
+    b = 'col' if (layout is None) else layout[1]
+    ptx_name = f'mma.sync.aligned.m{m}n{n}k{k}.{a}.{b}.f16.f16.f16.f16'
+    
+    emit_dense_mma(cuda_name, ptx_name, '__half2', 16, 16, m, n, k, ptx_type='unsigned int', s=s)
 
 
 def emit_dense_int_mma(sbits, m, n, k):
@@ -139,7 +147,7 @@ if __name__ == '__main__':
 
     emit_dense_f16_mma(16, 8, 8)
     emit_dense_f16_mma(16, 8, 16)
-    
+
     emit_dense_int_mma(4, 8, 8, 32)
     emit_dense_int_mma(4, 16, 8, 32)
     emit_dense_int_mma(4, 16, 8, 64)
@@ -147,6 +155,15 @@ if __name__ == '__main__':
     emit_dense_int_mma(8, 8, 8, 16)
     emit_dense_int_mma(8, 16, 8, 16)
     emit_dense_int_mma(8, 16, 8, 32)
+
+    # The PTX ISA includes f16 m8n8k4 MMAs.
+    # I tried generating wrappers for these, but timing showed that they were extremely slow.
+    # I assume these MMAs are legacy instructions which are emulated on Ampere.
+    # I left commented-out code here, and in ../generate_device_mma_hpp.py in case I ever want to revisit this.
+
+    # for a in ['row','col']:
+    #     for b in ['row','col']:
+    #         emit_dense_f16_mma(8, 8, 4, s=4, layout=(a,b))
     
     print(f'')
     print(f'}} // namespace gputils')
