@@ -1,60 +1,123 @@
 #!/usr/bin/env python3
 
 
-def brace_str(n, k):
-    t = [ f'%{i}' for i in range(k,k+n) ]
-    t = ', '.join(t)
-    return '{' + t + '}'
+class Argument:
+    def __init__(self, name, cuda_type, num_registers, const=False, is_array=True, ptx_type=None, is_braced=True):
+        self.name = name
+        self.cuda_type = cuda_type
+        self.num_registers = num_registers
+        self.const = const
+        self.is_array = is_array
+        self.ptx_type = ptx_type
+        self.is_braced = is_braced
 
-
-def elt_str(s, i, ptxtype=None, const=False):
-    var = f'{s}[{i}]'
-    if ptxtype is not None:
-        cv = 'const ' if const else ''
-        var = f'*({cv}{ptxtype} *) &{var}'
         
-    constraint = '"r"' if const else '"=r"'
-    return f'{constraint} ({var})'
+    def make_cuda_arglist(self):
+        if self.is_array:
+            cv = 'const ' if self.const else ''
+            return [ f'{cv}{self.cuda_type} {self.name}[{self.num_registers}]' ]
+
+        ret = [ ]
+        for i in range(self.num_registers):
+            cv = '' if self.const else '&'
+            ret.append(f'{cuda_type} {cv}{self.name}{i}')
+        
+        return ret
+
+
+    def make_ptx_argstr(self, base):
+        t = [ f'%{i}' for i in range(base, base + self.num_registers) ]
+        t = ', '.join(t)
+        if self.is_braced:
+            t =  '{' + t + '}'
+        return t
+
+
+    def make_constraint_str(self):
+        ret = [ ]
+        for i in range(self.num_registers):
+            v = f'{self.name}[{i}]' if self.is_array else f'{self.name}{i}'
+            if self.ptx_type is not None:
+                cv = 'const ' if self.const else ''
+                v = f'*({cv}{self.ptx_type} *) &{v}'
+                
+            constraint = '"r"' if self.const else '"=r"'
+            ret.append(f'{constraint} ({v})')
+
+        return ', '.join(ret)
+
+
+####################################################################################################
+
+
+def emit_kernel(cuda_name, ptx_name, *args):
+    cuda_arglist = [ ]
+    for arg in args:
+        cuda_arglist += arg.make_cuda_arglist()
+
+    cuda_argstr = ', '.join(cuda_arglist)
+    
+    print(f'')
+    print(f'// D = A*B + C')
+    print(f'__device__ __forceinline__')
+    print(f'void {cuda_name}({cuda_argstr})')
+    print(f'{{')
+    print(f'    asm("{ptx_name} "')
+
+    base = 0
+    for i,arg in enumerate(args):
+        s = f'"{arg.make_ptx_argstr(base)}'
+        t = ', "' if (i < len(args)-1) else ';" :'
+        base += arg.num_registers
+        print(f'        {s}{t}')
+
+    for i,arg in enumerate(args):
+        t = ''
+        if i == 0:
+            t = ' :'
+        elif i < len(args)-1:
+            t = ','
+
+        s = arg.make_constraint_str()
+        print(f'        {s}{t}')
+    
+    print(f'    );')
+    print(f'}}')
+    print(f'')
+
+
+####################################################################################################
 
     
-def arr_str(s, n, ptxtype=None, const=False):
-    elts = [ elt_str(s,i,ptxtype,const) for i in range(n) ]
-    return ', '.join(elts)
-
-
-def generate_mma(stype, m, n, k):
-    sf, ptxtype = '', None
-
-    if stype == 's4':
-        sbits, dbits, dtype, cudatype, sf = 4, 32, 's32', 'int', '.satfinite'
-    elif stype == 's8':
-        sbits, dbits, dtype, cudatype, sf = 8, 32, 's32', 'int', '.satfinite'
-    elif stype == 'f16':
-        sbits, dbits, dtype, cudatype, ptxtype = 16, 16, 'f16', '__half2', 'unsigned int'
-    else:
-        raise RuntimeError(f"Unrecognized stype '{stype}'")
-        
+def emit_dense_mma(cuda_name, ptx_name, cuda_type, dbits, sbits, m, n, k, ptx_type=None):
+    # Register counts
     na = (m*k*sbits) // 1024
     nb = (k*n*sbits) // 1024
     nc = (m*n*dbits) // 1024
 
-    print(f'')
-    print(f'// D = A*B + C')
-    print(f'__device__ __forceinline__')
-    print(f'void mma_{stype}_m{m}_n{n}_k{k}({cudatype} d[{nc}], const {cudatype} a[{na}], const {cudatype} b[{nb}], const {cudatype} c[{nc}])')
-    print(f'{{')
-    print(f'    asm("mma.sync.aligned.m{m}n{n}k{k}.row.col{sf}.{dtype}.{stype}.{stype}.{dtype} "')
-    print(f'        "{brace_str(nc,0)}, "')
-    print(f'        "{brace_str(na,nc)}, "')
-    print(f'        "{brace_str(nb,nc+na)}, "')
-    print(f'        "{brace_str(nc,nc+na+nb)};" :')
-    print(f'        {arr_str("d",nc,ptxtype)} :')
-    print(f'        {arr_str("a",na,ptxtype,const=True)},')
-    print(f'        {arr_str("b",nb,ptxtype,const=True)},')
-    print(f'        {arr_str("c",nc,ptxtype,const=True)}')
-    print(f'    );')
-    print(f'}}')
-    print(f'')
+    emit_kernel(
+        cuda_name,
+        ptx_name,
+        Argument('d', cuda_type, nc, ptx_type=ptx_type),
+        Argument('a', cuda_type, na, ptx_type=ptx_type, const=True),
+        Argument('b', cuda_type, nb, ptx_type=ptx_type, const=True),
+        Argument('c', cuda_type, nc, ptx_type=ptx_type, const=True)
+    )
+
+
+def emit_dense_f16_mma(m, n, k):
+    cuda_name = f'mma_f16_m{m}_n{n}_k{k}'
+    ptx_name = f'mma.sync.aligned.m{m}n{n}k{k}.row.col.f16.f16.f16.f16'
+    emit_dense_mma(cuda_name, ptx_name, '__half2', 16, 16, m, n, k, ptx_type='unsigned int')
+
+
+def emit_dense_int_mma(sbits, m, n, k):
+    cuda_name = f'mma_s{sbits}_m{m}_n{n}_k{k}'
+    ptx_name = f'mma.sync.aligned.m{m}n{n}k{k}.row.col.satfinite.s32.s{sbits}.s{sbits}.s32'
+    emit_dense_mma(cuda_name, ptx_name, 'int', 32, sbits, m, n, k)
+    
+
+####################################################################################################
 
     
 if __name__ == '__main__':
@@ -74,16 +137,16 @@ if __name__ == '__main__':
     print(f'namespace gputils {{')
     print(f'')
 
-    generate_mma('f16', 16, 8, 8)
-    generate_mma('f16', 16, 8, 16)
+    emit_dense_f16_mma(16, 8, 8)
+    emit_dense_f16_mma(16, 8, 16)
     
-    generate_mma('s4', 8, 8, 32)
-    generate_mma('s4', 16, 8, 32)
-    generate_mma('s4', 16, 8, 64)
+    emit_dense_int_mma(4, 8, 8, 32)
+    emit_dense_int_mma(4, 16, 8, 32)
+    emit_dense_int_mma(4, 16, 8, 64)
 
-    generate_mma('s8', 8, 8, 16)
-    generate_mma('s8', 16, 8, 16)
-    generate_mma('s8', 16, 8, 32)
+    emit_dense_int_mma(8, 8, 8, 16)
+    emit_dense_int_mma(8, 16, 8, 16)
+    emit_dense_int_mma(8, 16, 8, 32)
     
     print(f'')
     print(f'}} // namespace gputils')
