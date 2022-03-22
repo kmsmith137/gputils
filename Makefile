@@ -31,6 +31,7 @@ LIBFILES = \
   lib/libgputils.so
 
 XFILES = \
+  benchmarks/fma \
   benchmarks/l2-cache-bandwidth \
   benchmarks/tensor-cores \
   benchmarks/warp-shuffle \
@@ -75,10 +76,10 @@ lib/libgputils.a: $(OFILES)
 include/gputils/device_mma.hpp: generate_device_mma_hpp.py
 	python3 $^ >$@
 
-benchmarks/l2-cache-bandwidth: benchmarks/l2-cache-bandwidth.o lib/libgputils.a
+benchmarks/fma: benchmarks/fma.o lib/libgputils.a
 	$(NVCC) -o $@ $^
 
-benchmarks/mma-int4: benchmarks/mma-int4.o lib/libgputils.a
+benchmarks/l2-cache-bandwidth: benchmarks/l2-cache-bandwidth.o lib/libgputils.a
 	$(NVCC) -o $@ $^
 
 benchmarks/tensor-cores: benchmarks/tensor-cores.o lib/libgputils.a

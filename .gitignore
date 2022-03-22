@@ -1,5 +1,6 @@
 *~
 *.o
+benchmarks/fma
 benchmarks/l2-cache-bandwidth
 benchmarks/tensor-cores
 benchmarks/warp-shuffle
