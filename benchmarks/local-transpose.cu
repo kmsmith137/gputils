@@ -1,3 +1,4 @@
+#include <iostream>
 #include <cuda_fp16.h>
 
 #include "../include/gputils/Array.hpp"
@@ -104,6 +105,7 @@ void time_local_transpose_kernel(const char *name)
 
 int main(int argc, char **argv)
 {
+    cout << "** A puzzle: why is local transpose with __byte_perm() so slow?! **" << endl;
     time_local_transpose_kernel<__half2, local_transpose_f16> ("local_transpose_f16");
     time_local_transpose_kernel<unsigned int, local_transpose_byte_perm> ("local_transpose_byte_perm");
     return 0;
