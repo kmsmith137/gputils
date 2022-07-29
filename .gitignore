@@ -2,6 +2,7 @@
 *.o
 benchmarks/fma
 benchmarks/l2-cache-bandwidth
+benchmarks/local-transpose
 benchmarks/tensor-cores
 benchmarks/warp-shuffle
 include/gputils/device_mma.hpp
