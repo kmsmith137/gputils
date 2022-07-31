@@ -93,7 +93,7 @@ void time_local_transpose_kernel(const char *name)
 	    T *d = (T *) (dst.data + istream*ninner);
 	    T *s = (T *) (dst.data + istream*ninner);
 
-	    local_transpose_kernel<T,F> <<< nblocks, nthreads_per_block >>> (d, s, niter);
+	    local_transpose_kernel<T,F> <<< nblocks, nthreads_per_block, 0, stream >>> (d, s, niter);
 	    CUDA_PEEK(name);
 	};
 
