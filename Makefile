@@ -9,13 +9,15 @@ HFILES = \
   include/gputils/Array.hpp \
   include/gputils/CpuThreadPool.hpp \
   include/gputils/CudaStreamPool.hpp \
+  include/gputils/complex_type_traits.hpp \
   include/gputils/constexpr_functions.hpp \
   include/gputils/cuda_utils.hpp \
   include/gputils/device_mma.hpp \
   include/gputils/mem_utils.hpp \
   include/gputils/rand_utils.hpp \
   include/gputils/string_utils.hpp \
-  include/gputils/test_utils.hpp
+  include/gputils/test_utils.hpp \
+  include/gputils/time_utils.hpp
 
 OFILES = \
   src/Array.o \

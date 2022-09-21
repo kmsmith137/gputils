@@ -8,6 +8,9 @@
 // CudaStreamPool: run multiple streams with dynamic load-balancing, intended for timing
 #include "gputils/CudaStreamPool.hpp"
 
+// is_complex_v<T>, decomplexify_type<T>::type
+#include "gputils/complex_type_traits.hpp"
+
 // constexpr_is_pow2(), constexpr_ilog2()
 #include "gputils/constexpr_functions.hpp"
 

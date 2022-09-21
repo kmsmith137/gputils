@@ -3,9 +3,13 @@
 
 #include <vector>
 #include <random>
+#include <complex>
 #include <cassert>
 #include <type_traits>
 #include <cuda_fp16.h>
+
+// is_complex_v<T>, decomplexify_type<T>::type
+#include "complex_type_traits.hpp"
 
 namespace gputils {
 #if 0
@@ -68,11 +72,15 @@ template<typename T>
 inline void randomize(T *buf, ssize_t nelts, std::mt19937 &rng = default_rng)
 {
     assert(nelts >= 0);
-    
-    if constexpr (std::is_floating_point_v<T>)
+
+    if constexpr (gputils::is_complex_v<T>) {
+	using Tr = typename gputils::decomplexify_type<T>::type;
+	randomize<Tr> (reinterpret_cast<Tr*> (buf), 2*nelts, rng);
+    }
+    else if constexpr (std::is_floating_point_v<T>)
 	randomize_f(buf, nelts, rng);
     else {
-	static_assert(std::is_integral_v<T>, "randomize() array must be either integral or floating-point type");
+	static_assert(std::is_integral_v<T>, "randomize() array must be either integral, floating-point, or complex type");
 	randomize_i(buf, nelts, rng);
     }
 }
