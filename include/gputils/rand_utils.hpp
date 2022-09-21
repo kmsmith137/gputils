@@ -5,6 +5,7 @@
 #include <random>
 #include <cassert>
 #include <type_traits>
+#include <cuda_fp16.h>
 
 namespace gputils {
 #if 0
@@ -61,7 +62,8 @@ inline void randomize_i(T *buf, ssize_t nelts, std::mt19937 &rng = default_rng)
 }
 
 
-// General randomize()
+// General randomize() template, for built-in C++ int/float types.
+// For CUDA __half and __half2, we need specializations (see below).
 template<typename T>
 inline void randomize(T *buf, ssize_t nelts, std::mt19937 &rng = default_rng)
 {
@@ -72,6 +74,33 @@ inline void randomize(T *buf, ssize_t nelts, std::mt19937 &rng = default_rng)
     else {
 	static_assert(std::is_integral_v<T>, "randomize() array must be either integral or floating-point type");
 	randomize_i(buf, nelts, rng);
+    }
+}
+
+
+// __half randomize() template specialization.
+template<>
+inline void randomize(__half *buf, ssize_t nelts, std::mt19937 &rng)
+{
+    assert(nelts >= 0);    
+    auto dist = std::uniform_real_distribution<float>(-1.0f, 1.0f);
+    
+    for (ssize_t i = 0; i < nelts; i++)
+	buf[i] = __float2half_rn(dist(rng));
+}
+
+
+// __half2 randomize() template specialization.
+template<>
+inline void randomize(__half2 *buf, ssize_t nelts, std::mt19937 &rng)
+{
+    assert(nelts >= 0);
+    auto dist = std::uniform_real_distribution<float>(-1.0f, 1.0f);
+    
+    for (ssize_t i = 0; i < nelts; i++) {
+	float x = dist(rng);
+	float y = dist(rng);
+	buf[i] = __floats2half2_rn(x,y);
     }
 }
 
