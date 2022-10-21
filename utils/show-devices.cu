@@ -17,6 +17,7 @@ static void show_device(int device)
     cout << "    minor = " << prop.minor << endl;
     cout << "    multiProcessorCount = " << prop.multiProcessorCount << endl;
     cout << "    clockRate = " << prop.clockRate << endl;
+    cout << "    l2CacheSize = " << prop.l2CacheSize << endl;
 }
 
 
