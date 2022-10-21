@@ -62,6 +62,36 @@ vector<ssize_t> make_random_strides(const vector<ssize_t> &shape, int ncontig, i
 
 
 template<typename T>
+void print_array(const Array<T> &arr, const vector<string> &axis_names, std::ostream &os)
+{
+    assert((axis_names.size() == 0) || (axis_names.size() == arr.ndim));
+
+    int nd = arr.ndim;
+    
+    for (auto ix = arr.ix_start(); arr.ix_valid(ix); arr.ix_next(ix)) {
+	if (axis_names.size() == 0) {
+	    os << "    (";
+	    for (int d = 0; d < nd; d++)
+		os << (d ? "," : "") << ix[d];
+	    os << ((nd <= 1) ? ",)" : ")");
+	}
+	else {
+	    os << "   ";
+	    for (int d = 0; d < nd; d++)
+		os << " " << axis_names[d] << "=" << ix[d];
+	}
+
+	os << ": " << arr.at(ix) << "\n";
+    }
+
+    os.flush();
+}
+
+
+// -------------------------------------------------------------------------------------------------
+
+
+template<typename T>
 typename gputils::decomplexify_type<T>::type
 assert_arrays_equal(const Array<T> &arr1,
 		    const Array<T> &arr2,
@@ -130,6 +160,8 @@ assert_arrays_equal(const Array<T> &arr1,
     
     if ((nfail > max_display) && !verbose)
 	cout << "        [ + " << (nfail-max_display) << " more failures]\n";
+
+    cout.flush();
     
     if (nfail > 0)
 	exit(1);
@@ -138,7 +170,12 @@ assert_arrays_equal(const Array<T> &arr1,
 }
 
 
-#define INSTANTIATE_ASSERT_ARRAYS_EQUAL(T)  \
+#define INSTANTIATE_TEMPLATES(T)	    \
+    template void print_array(              \
+	const Array<T> &arr,                \
+	const vector<string> &axis_names,   \
+	ostream &os);                       \
+                                            \
     template				    \
     gputils::decomplexify_type<T>::type	    \
     assert_arrays_equal(		    \
@@ -154,18 +191,18 @@ assert_arrays_equal(const Array<T> &arr1,
 
 
 
-INSTANTIATE_ASSERT_ARRAYS_EQUAL(float);
-INSTANTIATE_ASSERT_ARRAYS_EQUAL(double);
-INSTANTIATE_ASSERT_ARRAYS_EQUAL(int);
-INSTANTIATE_ASSERT_ARRAYS_EQUAL(long);
-INSTANTIATE_ASSERT_ARRAYS_EQUAL(short);
-INSTANTIATE_ASSERT_ARRAYS_EQUAL(char);
-INSTANTIATE_ASSERT_ARRAYS_EQUAL(unsigned int);
-INSTANTIATE_ASSERT_ARRAYS_EQUAL(unsigned long);
-INSTANTIATE_ASSERT_ARRAYS_EQUAL(unsigned short);
-INSTANTIATE_ASSERT_ARRAYS_EQUAL(unsigned char);
-INSTANTIATE_ASSERT_ARRAYS_EQUAL(complex<float>);
-INSTANTIATE_ASSERT_ARRAYS_EQUAL(complex<double>);
+INSTANTIATE_TEMPLATES(float);
+INSTANTIATE_TEMPLATES(double);
+INSTANTIATE_TEMPLATES(int);
+INSTANTIATE_TEMPLATES(long);
+INSTANTIATE_TEMPLATES(short);
+INSTANTIATE_TEMPLATES(char);
+INSTANTIATE_TEMPLATES(unsigned int);
+INSTANTIATE_TEMPLATES(unsigned long);
+INSTANTIATE_TEMPLATES(unsigned short);
+INSTANTIATE_TEMPLATES(unsigned char);
+INSTANTIATE_TEMPLATES(complex<float>);
+INSTANTIATE_TEMPLATES(complex<double>);
 
 
 }  // namespace gputils

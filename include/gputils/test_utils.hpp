@@ -23,6 +23,16 @@ extern std::vector<ssize_t> make_random_strides(const std::vector<ssize_t> &shap
 // -------------------------------------------------------------------------------------------------
 
 
+// Very boneheaded function which prints an array.
+// Currently one line per array element -- could be improved!
+
+template<typename T>
+extern void
+print_array(const Array<T> &arr,
+	    const std::vector<std::string> &axis_names = {},
+	    std::ostream &os = std::cout);
+
+
 // Instantiated for T = float, double, (u)int, (u)long, (u)short, (u)char, complex<float>, complex<double>.
 // For non floating point types, the 'epsabs' and 'epsrel' arguments are ignored.
 //
