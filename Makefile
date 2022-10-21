@@ -42,7 +42,8 @@ XFILES = \
   loose_ends/scratch \
   reverse_engineering/reverse-engineer-mma \
   tests/test-array \
-  tests/test-sparse-mma
+  tests/test-sparse-mma \
+  utils/show-devices
 
 SRCDIRS = \
   include \
@@ -108,4 +109,7 @@ tests/test-array: tests/test-array.o lib/libgputils.a
 	$(NVCC) -o $@ $^
 
 tests/test-sparse-mma: tests/test-sparse-mma.o lib/libgputils.a
+	$(NVCC) -o $@ $^
+
+utils/show-devices: utils/show-devices.o
 	$(NVCC) -o $@ $^
