@@ -1,6 +1,7 @@
 #ifndef _GPUTILS_TEST_UTILS_HPP
 #define _GPUTILS_TEST_UTILS_HPP
 
+#include <iostream>
 #include "Array.hpp"
 
 // is_complex_v<T>, decomplexify_type<T>::type
