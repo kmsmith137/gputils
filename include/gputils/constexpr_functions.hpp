@@ -8,6 +8,15 @@ constexpr __host__ __device__ bool constexpr_is_divisible(int m, int n)
     return (m >= 0) && (n > 0) && ((m % n) == 0);
 }
 
+// I wanted the syntax: constexpr_idiv(m,n)
+// The best I could do was: constexpr_idiv<m,n>:::value
+template<int m, int n>
+struct constexpr_idiv
+{
+    static_assert(constexpr_is_divisible(m,n));
+    static constexpr int value = m/n;
+};
+
 // Frequently used in static_assert().
 constexpr __host__ __device__ bool constexpr_is_pow2(int n)
 {
