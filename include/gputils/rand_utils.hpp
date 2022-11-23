@@ -59,9 +59,9 @@ inline void randomize_i(T *buf, ssize_t nelts, std::mt19937 &rng = default_rng)
     ssize_t nbytes = nelts * sizeof(T);
     ssize_t nints = nbytes / sizeof(int);
     
-    for (int i = 0; i < nints; i++)
+    for (ssize_t i = 0; i < nints; i++)
 	((int *)buf)[i] = rng();
-    for (int i = nints * sizeof(int); i < nbytes; i++)
+    for (ssize_t i = nints * sizeof(int); i < nbytes; i++)
 	((char *)buf)[i] = rng();
 }
 

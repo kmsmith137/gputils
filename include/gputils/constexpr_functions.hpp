@@ -1,6 +1,11 @@
 #ifndef _GPUTILS_CONSTEXPR_FUNCTIONS_HPP
 #define _GPUTILS_CONSTEXPR_FUNCTIONS_HPP
 
+namespace gputils {
+#if 0
+}   // pacify editor auto-indent
+#endif
+
 
 // Frequently used in static_assert().
 constexpr __host__ __device__ bool constexpr_is_divisible(int m, int n)
@@ -45,5 +50,7 @@ constexpr __host__ __device__ T constexpr_max(T m, T n)
     return (m > n) ? m : n;
 }
 
+
+} // namespace gputils
 
 #endif // _GPUTILS_CONSTEXPR_FUNCTIONS_HPP
