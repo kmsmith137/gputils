@@ -113,3 +113,11 @@ tests/test-sparse-mma: tests/test-sparse-mma.o lib/libgputils.a
 
 utils/show-devices: utils/show-devices.o
 	$(NVCC) -o $@ $^
+
+INSTALL_DIR ?= /usr/local
+
+install: $(LIBFILES)
+	mkdir -p $(INSTALL_DIR)/include
+	mkdir -p $(INSTALL_DIR)/lib
+	cp -rv lib $(INSTALL_DIR)/
+	cp -rv include $(INSTALL_DIR)/
