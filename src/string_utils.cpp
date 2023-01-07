@@ -1,3 +1,5 @@
+#include <cassert>
+#include <cstring>
 #include <iomanip>
 #include <sstream>
 #include <iostream>
