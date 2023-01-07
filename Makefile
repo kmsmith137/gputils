@@ -26,6 +26,7 @@ OFILES = \
   src/cuda_utils.o \
   src/mem_utils.o \
   src/rand_utils.o \
+  src/string_utils.o \
   src/test_utils.o
 
 LIBFILES = \

@@ -51,27 +51,34 @@ static std::string to_str(const T &x)
 }
 
 
+// Returns false if (string -> T) conversion fails.
 template<typename T>
-static T from_str(const std::string &s)
+static bool _from_str(const std::string &s, T &val)
 {
     std::stringstream ss;
     ss << s;
-        
-    T ret = 0;
-    ss >> ret;
-    int f1 = ss.fail();
-    
+
+    ss >> val;  // shouldn't fail, if 's' is valid.
+    if (ss.fail())
+	return false;
+
     std::string t;
-    ss >> t;
-    int f2 = ss.fail();
+    ss >> t;    // should fail, if 's' is valid.
+    return ss.fail();
+}
 
-    if (f1 || !f2) {
-	std::stringstream err;
-	err << "couldn't convert string \"" << s << "\" to type " << type_name<T>();
-	throw std::runtime_error(err.str());
-    }
 
-    return ret;
+// Throws an exception if (string -> T) conversion fails.
+template<typename T>
+static T from_str(const std::string &s)
+{
+    T ret = 0;
+    if (_from_str(s, ret))
+	return ret;
+    
+    std::stringstream err;
+    err << "couldn't convert string \"" << s << "\" to type " << type_name<T>();
+    throw std::runtime_error(err.str());
 }
 
 
@@ -106,6 +113,16 @@ static std::string tuple_str(const std::vector<T> &tuple)
 {
     return tuple_str(tuple.size(), &tuple[0]);
 }
+
+
+// ---------------------------  nbytes_to_str(), nbytes_from_str()  --------------------------------
+
+
+// Converts integer byte count to a string such as "1.5 MB" or "320 bytes".
+extern std::string nbytes_to_str(ssize_t nbytes);
+
+// Converts a string such as "1.5 MB" or "320 bytes" to a byte count.
+extern ssize_t nbytes_from_str(const std::string &s);
 
 
 } // namespace gputils
