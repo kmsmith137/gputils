@@ -2,6 +2,7 @@
 #define _GPUTILS_FILE_HPP
 
 #include <string>
+#include <fcntl.h>      // open flags (O_RDONLY, etc.)
 #include <sys/types.h>  // ssize_t
 
 namespace gputils {
@@ -17,7 +18,7 @@ struct File
     int fd = -1;
     
     // Constructor opens file.
-    // Suggest oflags = O_RDONLY for reading, and (O_WRONLY | O_CREAT | O_TRUNC) for writing.
+    // Suggest oflags = (O_RDONLY) for reading, and (O_WRONLY | O_CREAT | O_TRUNC) for writing.
     
     File(const std::string &filename, int oflags, int mode=0644);
     ~File();
