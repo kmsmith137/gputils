@@ -10,6 +10,7 @@ HFILES = \
   include/gputils/CpuThreadPool.hpp \
   include/gputils/CudaStreamPool.hpp \
   include/gputils/File.hpp \
+  include/gputils/ThreadSafeRingBuffer.hpp \
   include/gputils/complex_type_traits.hpp \
   include/gputils/constexpr_functions.hpp \
   include/gputils/cuda_utils.hpp \
