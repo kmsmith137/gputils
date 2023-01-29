@@ -72,7 +72,7 @@ void pin_thread_to_vcpus(const vector<int> &vcpu_list)
 	if ((vcpu < 0) || (vcpu >= num_vcpus)) {
 	    stringstream ss;
 	    ss << "gputils: pin_thread_to_vcpus: vcpu=" << vcpu
-	       << " is out of range (num_vcpus=" << num_vcpus <<  to_string(num_vcpus) + ")"";
+	       << " is out of range (num_vcpus=" << num_vcpus <<  to_string(num_vcpus) + ")";
 	    throw runtime_error(ss.str());
 	}
 	CPU_SET(vcpu, &cs);

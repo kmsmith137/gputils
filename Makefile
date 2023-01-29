@@ -18,6 +18,7 @@ HFILES = \
   include/gputils/mem_utils.hpp \
   include/gputils/rand_utils.hpp \
   include/gputils/string_utils.hpp \
+  include/gputils/system_utils.hpp \
   include/gputils/test_utils.hpp \
   include/gputils/time_utils.hpp
 
@@ -30,6 +31,7 @@ OFILES = \
   src/mem_utils.o \
   src/rand_utils.o \
   src/string_utils.o \
+  src/system_utils.o \
   src/test_utils.o
 
 LIBFILES = \
