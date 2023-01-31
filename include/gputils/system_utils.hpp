@@ -13,6 +13,10 @@ namespace gputils {
 // Error-checked (*_ec) versions of linux/posix functions, which throw verbose
 // exceptions on failure.
 
+
+extern void mkdir_ec(const char *path, int mode=0755);
+extern void mkdir_ec(const std::string &path, int mode=0755);
+
 extern void mlockall_ec(int flags = MCL_CURRENT | MCL_FUTURE | MCL_ONFAULT);
 
 

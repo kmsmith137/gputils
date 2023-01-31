@@ -3,6 +3,8 @@
 #include <stdexcept>
 #include <pthread.h>
 #include <sched.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "../include/gputils/system_utils.hpp"
 
@@ -13,6 +15,26 @@ namespace gputils {
 #if 0
 };  // pacify emacs c-mode!
 #endif
+
+
+void mkdir_ec(const char *path, int mode)
+{
+    // FIXME mkdir_ec() should have 'exist_ok' arg.
+    
+    int err = mkdir(path, mode);
+    
+    if (err < 0) {
+	stringstream ss;
+	ss << "mkdir('" << path << "') failed: " << strerror(errno);  // FIXME should show mode
+	throw runtime_error(ss.str());
+    }
+}
+
+
+void mkdir_ec(const std::string &path, int mode)
+{
+    mkdir_ec(path.c_str(), mode);
+}
 
 
 void mlockall_ec(int flags)
