@@ -5,6 +5,9 @@
 // Array class
 #include "gputils/Array.hpp"
 
+// Barrier: synchronization point between N threads
+#include "gputils/Barrier.hpp"
+
 // CudaStreamPool: run multiple streams with dynamic load-balancing, intended for timing.
 #include "gputils/CudaStreamPool.hpp"
 

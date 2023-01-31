@@ -7,6 +7,7 @@ SHELL := /bin/bash
 
 HFILES = \
   include/gputils/Array.hpp \
+  include/gputils/Barrier.hpp \
   include/gputils/CpuThreadPool.hpp \
   include/gputils/CudaStreamPool.hpp \
   include/gputils/File.hpp \
@@ -24,6 +25,7 @@ HFILES = \
 
 OFILES = \
   src/Array.o \
+  src/Barrier.o \
   src/CpuThreadPool.o \
   src/CudaStreamPool.o \
   src/File.o \
