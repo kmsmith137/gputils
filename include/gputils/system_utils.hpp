@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <string>
+#include <unistd.h>
 #include <sys/mman.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -15,8 +16,9 @@ namespace gputils {
 #endif
 
 
-// Error-checked (*_x) versions of linux/posix functions, which throw verbose
-// exceptions on failure.
+// -------------------------------------------------------------------------------------------------
+//
+// Error-checked (*_x) versions of linux/posix functions, which throw verbose exceptions on failure.
 
 
 extern void mkdir_x(const char *path, int mode=0755);
@@ -24,32 +26,47 @@ extern void mkdir_x(const std::string &path, int mode=0755);
 
 extern void mlockall_x(int flags = MCL_CURRENT | MCL_FUTURE | MCL_ONFAULT);
 
-// Reminder: reads up to 'count' bytes, returns zero on EOF.
-extern ssize_t read_x(int fd, void *buf, size_t count);
+// Reminder: returns number of bytes read (must be <= count), returns zero on EOF.
+extern ssize_t read_x(int fd, void *buf, ssize_t count);
 
 
-// Socket API cheat sheet: accepting a TCP connection
+// -------------------------------------------------------------------------------------------------
 //
-//   int on = 1;
+// Socket API.
+// Some these functions assume IPv4 for now -- I may add IPv6 counterparts later.
+// I can never remember the socket API, so the following comments are notes to myself.
+//
+// Accepting a TCP connection:
+//
 //   int fdlisten = socket_x(PF_INET, SOCK_STREAM);
-//   setsockopt_x(fdlisten, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
-//   bind_socket(fdlisten, "10.0.0.1", 1370);
+//   bind_x(fdlisten, "10.0.0.1", 1370);
 //   listen_x(fdlisten);
 //
 //   int fd = accept_x(fdlisten);
 //   fcntl_x(fd, F_SETFL, O_NDELAY);
-
+//
+//
+// SO_REUSEADDR option on listening socket is usually a good idea:
+//   int on = 1;
+//   setsockopt_x(fdlisten, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
+//
+// Sending TCP data:
+//
+//   int fd = socket_x(PF_INET, SOCK_STREAM);
 
 extern int socket_x(int domain, int type, int protocol=0);
 extern int accept_x(int sockfd, sockaddr_in *addr = nullptr);
 extern void listen_x(int sockfd, int backlog=128);
+extern void bind_x(int sockfd, const struct sockaddr_in &saddr);
+extern void bind_x(int sockfd, const std::string &ip_addr, short port);
+extern void connect_x(int sockfd, const struct sockaddr_in &saddr);
+extern void connect_x(int sockfd, const std::string &ip_addr, short port);
 extern void getsockopt_x(int sockfd, int level, int optname, void *optval, socklen_t *optlen);
 extern void setsockopt_x(int sockfd, int level, int optname, const void *optval, socklen_t optlen);
+extern void inet_pton_x(struct sockaddr_in &saddr, const std::string &ip_addr, short port);
 
-
-// bind_socket(): wrapper for inet_pton(), followed by bind().
-// IPv4 assumed for now! (I may add an ip=4 optional argument later).
-extern void bind_socket(int sockfd, const std::string &ip_addr, short port);
+// Reminder: returns number of bytes written (must be <= count), returns zero on EOF.
+extern ssize_t send_x(int sockfd, void *buf, ssize_t count, int flags=0);
 
 
 // pin_thread_to_vcpus(vcpu_list)
