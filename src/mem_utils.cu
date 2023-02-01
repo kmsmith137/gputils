@@ -1,7 +1,10 @@
 #include <sstream>
 #include <iostream>
+
 #include "../include/gputils/mem_utils.hpp"
 #include "../include/gputils/cuda_utils.hpp"
+#include "../include/gputils/system_utils.hpp"
+#include "../include/gputils/constexpr_functions.hpp"   // constexpr_is_pow2()
 
 
 using namespace std;
@@ -267,6 +270,55 @@ void _af_copy(void *dst, int dst_flags, const void *src, int src_flags, ssize_t 
     
     cudaMemcpyKind kind = af_copy_kind(dst_flags, src_flags);
     CUDA_CALL(cudaMemcpy(dst, src, nbytes, kind));
+}
+
+
+// -------------------------------------------------------------------------------------------------
+
+
+// The 'hugepage_policy' arg has the following meaning:
+//   0 = Do not use 2M hugepages.
+//   1 = Try to use 2M hugepages. If this fails, silently fall back on 4K pages.
+//   2 = Try to use 2M hugepages. If this fails, fall back on 4K pages and print warning.
+//   3 = Require 2M hugepages. (Raise exception on failure.)
+
+
+// Returns bare pointer; caller is responsible for calling munmap(ptr,nalloc) [not munmap(ptr,nbytes)!]
+void *_make_mmap(ssize_t nbytes, ssize_t &nalloc, int hugepage_policy)
+{
+    static constexpr int hugepage_size = 2 * 1024 * 1024;
+    static_assert(constexpr_is_pow2(hugepage_size));
+    
+    assert(nbytes > 0);
+    assert((hugepage_policy >= 0) && (hugepage_policy <= 3));
+    
+    int pflags = PROT_READ | PROT_WRITE;
+    int mflags = MAP_PRIVATE | MAP_ANONYMOUS;  // no MAP_HUGETLB
+
+    if (hugepage_policy >= 1) {
+	static constexpr ssize_t s = hugepage_size-1;
+	nalloc = ((nbytes+s) & ~s);
+
+	void *ret = mmap(NULL, nalloc, pflags, mflags | MAP_HUGETLB, -1, 0);
+	
+	if (ret != MAP_FAILED) {
+	    assert(ret != nullptr);  // paranoid
+	    return ret;
+	}
+
+	if (hugepage_policy >= 2) {
+	    stringstream ss;
+	    ss << "mmap() with hugepages failed: " << strerror(errno) << ". Try this: echo 1000 > /proc/sys/vm/nr_hugepages";
+	    
+	    if (hugepage_policy >= 3)
+		throw runtime_error(ss.str());
+
+	    cerr << ss.str() << "\n";
+	}
+    }
+
+    nalloc = nbytes;
+    return mmap_x(NULL, nalloc, pflags, mflags, -1, 0);
 }
 
 

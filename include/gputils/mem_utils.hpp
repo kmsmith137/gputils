@@ -4,7 +4,9 @@
 #include <string>
 #include <memory>
 #include <type_traits>
-#include "rand_utils.hpp"   // randomize()
+
+#include "rand_utils.hpp"     // randomize()
+#include "system_utils.hpp"   // munmap_x()
 
 namespace gputils {
 #if 0
@@ -128,6 +130,35 @@ inline std::shared_ptr<T> af_clone(int dst_flags, const T *src, int src_flags, s
     dst_flags &= ~af_initialization_flags;
     std::shared_ptr<T> ret = af_alloc<T> (nelts, dst_flags);
     af_copy(ret.get(), dst_flags, src, src_flags, nelts);
+}
+
+
+// -------------------------------------------------------------------------------------------------
+//
+// Smart pointer interface to mmap().
+//
+// The 'hugepage_policy' arg has the following meaning:
+//   0 = Do not use 2M hugepages.
+//   1 = Try to use 2M hugepages. If this fails, silently fall back on 4K pages.
+//   2 = Try to use 2M hugepages. If this fails, fall back on 4K pages and print warning.
+//   3 = Require 2M hugepages. (Raise exception on failure.)
+
+
+// Returns bare pointer; caller is responsible for calling munmap(ptr,nalloc) [not munmap(ptr,nbytes)!]
+extern void *_make_mmap(ssize_t nbytes, ssize_t &nalloc, int hugepage_policy);
+
+
+// Smart pointer which automatically calls munmap() on deletion.
+template<typename T>
+std::shared_ptr<T> make_mmap(ssize_t nelts, int hugepage_policy)
+{
+    ssize_t nalloc = 0;
+    
+    void *ret = _make_mmap(nelts * sizeof(T), nalloc, hugepage_policy);
+    assert(nalloc > 0);
+
+    auto deleter = [nalloc](void *p) { munmap_x(p,nalloc); };
+    return std::shared_ptr<T> (reinterpret_cast<T*> (ret), deleter);
 }
 
 
