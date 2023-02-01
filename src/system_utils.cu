@@ -53,6 +53,36 @@ void mlockall_x(int flags)
 }
 
 
+void *mmap_x(void *addr, ssize_t length, int prot, int flags, int fd, off_t offset)
+{
+    assert(length > 0);
+    void *ret = mmap(addr, length, prot, flags, fd, offset);
+
+    if (ret == MAP_FAILED) {
+	stringstream ss;
+	ss << "mmap() failed: " << strerror(errno);
+	throw runtime_error(ss.str());
+    }
+
+    assert(ret != nullptr);  // paranoid
+    return ret;
+}
+
+	     
+void munmap_x(void *addr, ssize_t length)
+{
+    assert(length > 0);
+    
+    int err = munmap(addr, length);
+
+    if (err < 0) {
+	stringstream ss;
+	ss << "mmap() failed: " << strerror(errno);
+	throw runtime_error(ss.str());
+    }
+}
+
+
 ssize_t read_x(int fd, void *buf, ssize_t count)
 {
     assert(count > 0);
@@ -67,6 +97,9 @@ ssize_t read_x(int fd, void *buf, ssize_t count)
     // Returns 0 on EOF.
     return nbytes;
 }
+
+
+// -------------------------------------------------------------------------------------------------
 
 
 int socket_x(int domain, int type, int protocol)

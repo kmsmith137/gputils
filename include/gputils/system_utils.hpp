@@ -26,6 +26,9 @@ extern void mkdir_x(const std::string &path, int mode=0755);
 
 extern void mlockall_x(int flags = MCL_CURRENT | MCL_FUTURE | MCL_ONFAULT);
 
+extern void *mmap_x(void *addr, ssize_t length, int prot, int flags, int fd, off_t offset);
+extern void munmap_x(void *addr, ssize_t length);
+
 // Reminder: returns number of bytes read (must be <= count), returns zero on EOF.
 extern ssize_t read_x(int fd, void *buf, ssize_t count);
 
