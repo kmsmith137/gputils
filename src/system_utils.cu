@@ -1,10 +1,12 @@
 #include <thread>
+#include <cassert>
 #include <sstream>
 #include <stdexcept>
-#include <pthread.h>
 #include <sched.h>
+#include <unistd.h>
+#include <pthread.h>
 #include <sys/stat.h>
-#include <sys/types.h>
+#include <arpa/inet.h>
 
 #include "../include/gputils/system_utils.hpp"
 
@@ -17,10 +19,8 @@ namespace gputils {
 #endif
 
 
-void mkdir_ec(const char *path, int mode)
+void mkdir_x(const char *path, int mode)
 {
-    // FIXME mkdir_ec() should have 'exist_ok' arg.
-    
     int err = mkdir(path, mode);
     
     if (err < 0) {
@@ -31,13 +31,13 @@ void mkdir_ec(const char *path, int mode)
 }
 
 
-void mkdir_ec(const std::string &path, int mode)
+void mkdir_x(const std::string &path, int mode)
 {
-    mkdir_ec(path.c_str(), mode);
+    mkdir_x(path.c_str(), mode);
 }
 
 
-void mlockall_ec(int flags)
+void mlockall_x(int flags)
 {
     // FIXME low-priority things to add:
     //   - test that 'flags' is a subset of (MCL_CURRENT | MCL_FUTURE | MCL_ONFAULT)
@@ -52,6 +52,126 @@ void mlockall_ec(int flags)
     }
 }
 
+
+ssize_t read_x(int fd, void *buf, size_t count)
+{
+    ssize_t nbytes = read(fd, buf, count);
+
+    if (nbytes < 0) {
+	stringstream ss;
+	ss << "read() failed: " << strerror(errno);
+	throw runtime_error(ss.str());
+    }
+
+    // Returns 0 on EOF.
+    return nbytes;
+}
+
+
+int socket_x(int domain, int type, int protocol)
+{
+    int fd = socket(domain, type, protocol);
+
+    if (fd < 0) {
+	stringstream ss;
+	ss << "socket() failed: " << strerror(errno);
+	throw runtime_error(ss.str());
+    }
+
+    return fd;
+}
+
+
+int accept_x(int sockfd, sockaddr_in *addr)
+{
+    sockaddr_in saddr;
+    addr = addr ? &saddr : addr;
+
+    socklen_t addrlen = sizeof(sockaddr_in);
+    int fd = accept(sockfd, (struct sockaddr *) addr, &addrlen);
+
+    if (fd < 0) {
+	stringstream ss;
+	ss << "accept() failed: " << strerror(errno);
+	throw runtime_error(ss.str());
+    }    
+
+    return fd;
+}
+
+
+void listen_x(int sockfd, int backlog)
+{
+    int err = listen(sockfd, backlog);
+
+    if (err < 0) {
+	stringstream ss;
+	ss << "listen() failed: " << strerror(errno);
+	throw runtime_error(ss.str());
+    }    
+}
+
+
+void getsockopt_x(int sockfd, int level, int optname, void *optval, socklen_t *optlen)
+{
+    assert(optval != nullptr);
+    assert(optlen != nullptr);
+
+    int err = getsockopt(sockfd, level, optname, optval, optlen);
+    
+    if (err < 0) {
+	stringstream ss;
+	ss << "getsockopt() failed: " << strerror(errno);
+	throw runtime_error(ss.str());
+    }
+}
+
+
+void setsockopt_x(int sockfd, int level, int optname, const void *optval, socklen_t optlen)
+{
+    assert(optval != nullptr);
+
+    int err = setsockopt(sockfd, level, optname, optval, optlen);
+
+    if (err < 0) {
+	stringstream ss;
+	ss << "setsockopt() failed: " << strerror(errno);
+	throw runtime_error(ss.str());
+    }
+}
+
+
+void bind_socket(int sockfd, const string &ip_addr, short port)
+{
+    struct sockaddr_in saddr;
+    memset(&saddr, 0, sizeof(saddr));
+
+    saddr.sin_family = AF_INET;
+    saddr.sin_port = htons(port);   // note htons() here!
+    
+    int err = inet_pton(AF_INET, ip_addr.c_str(), &saddr.sin_addr);
+    
+    if (err < 0) {
+	stringstream ss;
+	ss << "inet_pton() failed: " << strerror(errno);
+	throw runtime_error(ss.str());
+    }
+
+    if (err == 0) {
+	stringstream ss;
+	ss << "invalid IPv4 address: '" << ip_addr << "'";
+	throw runtime_error(ss.str());
+    }
+
+    err = bind(sockfd, (struct sockaddr *) &saddr, sizeof(saddr));
+    
+    if (err < 0) {
+	stringstream ss;
+	ss << "bind() failed: " << strerror(errno);
+	throw runtime_error(ss.str());
+    }
+}
+		 
 
 // -------------------------------------------------------------------------------------------------
 //
