@@ -46,6 +46,9 @@ void Barrier::wait()
 void Barrier::abort(const string &msg)
 {
     std::unique_lock ul(lock);
+    if (aborted)
+	return;
+    
     this->aborted = true;
     this->abort_msg = msg;
     ul.unlock();
