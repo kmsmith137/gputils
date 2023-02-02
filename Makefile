@@ -10,6 +10,7 @@ HFILES = \
   include/gputils/Barrier.hpp \
   include/gputils/CpuThreadPool.hpp \
   include/gputils/CudaStreamPool.hpp \
+  include/gputils/Epoll.hpp \
   include/gputils/File.hpp \
   include/gputils/ThreadSafeRingBuffer.hpp \
   include/gputils/complex_type_traits.hpp \
@@ -28,6 +29,7 @@ OFILES = \
   src/Barrier.o \
   src/CpuThreadPool.o \
   src/CudaStreamPool.o \
+  src/Epoll.o \
   src/File.o \
   src/cuda_utils.o \
   src/mem_utils.o \

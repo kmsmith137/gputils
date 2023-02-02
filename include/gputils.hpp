@@ -14,6 +14,9 @@
 // CpuThreadPool: run multiple CPU threads with dynamic load-balancing, intended for timing.
 #include "gputils/CpuThreadPool.hpp"
 
+// Epoll: RAII wrapper for epoll file descriptor.
+#include "gputils/Epoll.hpp"
+
 // File: RAII wrapper for unix file descriptor.
 #include "gputils/File.hpp"
 
@@ -41,7 +44,7 @@
 // to_str(), from_str(), tuple_str(), type_name()
 #include "gputils/string_utils.hpp"
 
-// Error-checked (*_ec) versions of linux/posix functions, which throw verbose exceptions on failure.
+// Error-checked (*_x) versions of linux/posix functions, which throw verbose exceptions on failure.
 #include "gputils/system_utils.hpp"
 
 // assert_arrays_equal()
