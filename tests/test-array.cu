@@ -135,15 +135,15 @@ struct RandomlyStridedArray {
 	for (int d = 0; d < ndim; d++) 
 	    cbase_len += (shape[d]-1) * strides[d];
 
-	cbase = af_alloc<T> (cbase_len, af_guard | af_random);
-	cbase_copy = af_alloc<T> (cbase_len);
+	cbase = af_alloc<T> (cbase_len, af_rhost | af_guard | af_random);
+	cbase_copy = af_alloc<T> (cbase_len, af_rhost);
 	memcpy(cbase_copy.get(), cbase.get(), cbase_len * sizeof(T));
 
 	arr.data = cbase.get();
 	arr.ndim = ndim;
 	arr.base = cbase;
 	arr.size = compute_size(ndim, &shape[0]);
-	arr.aflags = 0;
+	arr.aflags = af_rhost;
 	
 	for (int d = 0; d < ArrayMaxDim; d++) {
 	    arr.shape[d] = (d < ndim) ? shape[d] : 0;
@@ -406,7 +406,7 @@ int main(int argc, char **argv)
     for (int i = 0; i < niter; i++) {
 	if (i % 100 == 0)
 	    cout << "test-array: iteration " << i << "/" << niter << endl;
-	
+
 	RandomlyStridedArray<float> tf(noisy);
 	tf.run_simple_tests();
 	

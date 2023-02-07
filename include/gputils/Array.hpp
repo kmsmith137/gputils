@@ -27,7 +27,7 @@ struct Array {
     ssize_t strides[ArrayMaxDim];  // in units sizeof(T), not bytes
 
     std::shared_ptr<T> base;  // FIXME generalize to shared_ptr<void>?
-    int aflags = af_uninitialized;
+    int aflags = 0;
 
     // "Empty" arrays are size-zero objects containing null pointers.
     // All Arrays obey the rules:
@@ -42,19 +42,19 @@ struct Array {
     Array();
     
     // Allocator flags ('aflags') are defined in mem_utils.hpp
-    // In particular, the 'af_gpu' flag allocates the array on the GPU
-    Array(int ndim, const ssize_t *shape, int aflags=0);
-    Array(const std::vector<ssize_t> &shape, int aflags=0);
+    // Flags can be used to allocate memory on CPU/GPU, zero memory after allocation, etc.
+    Array(int ndim, const ssize_t *shape, int aflags);
+    Array(const std::vector<ssize_t> &shape, int aflags);
     
     // Syntactic sugar for constructing array with "inline" dimensions, e.g.
     //    Array<float> arr({m,n}, af_gpu);
-    Array(std::initializer_list<ssize_t> shape, int aflags=0);
+    Array(std::initializer_list<ssize_t> shape, int aflags);
 
     // These constructors allow explicit strides.
     // Often used in unit tests, with make_random_strides() in test_utils.hpp.
-    Array(int ndim, const ssize_t *shape, const ssize_t *strides, int aflags=0);
-    Array(const std::vector<ssize_t> &shape, const std::vector<ssize_t> &strides, int aflags=0);
-    Array(std::initializer_list<ssize_t> shape, std::initializer_list<ssize_t> strides, int aflags=0);
+    Array(int ndim, const ssize_t *shape, const ssize_t *strides, int aflags);
+    Array(const std::vector<ssize_t> &shape, const std::vector<ssize_t> &strides, int aflags);
+    Array(std::initializer_list<ssize_t> shape, std::initializer_list<ssize_t> strides, int aflags);
 
     
     // Is array addressable on GPU? On host?
@@ -68,7 +68,7 @@ struct Array {
     
     // Returns an Array addressable on GPU (or host), making a copy if necessary.
     inline Array<T> to_gpu() const;
-    inline Array<T> to_host(bool page_locked=true) const;
+    inline Array<T> to_host(bool registered=true) const;
 
     // Returns number of contiguous dimensions, assuming indices are ordered
     // from slowest to fastest varying. Returns 'ndim' for an empty array.
@@ -299,9 +299,10 @@ Array<T> Array<T>::to_gpu() const
 }
 
 template<typename T>
-Array<T> Array<T>::to_host(bool page_locked) const
+Array<T> Array<T>::to_host(bool registered) const
 {
-    return this->on_host() ? (*this) : this->clone(page_locked ? af_page_locked : 0);
+    int dst_flags = registered ? af_rhost : af_uhost;
+    return this->on_host() ? (*this) : this->clone(dst_flags);
 }
 
 template<typename T>

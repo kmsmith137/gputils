@@ -3,7 +3,7 @@
 
 #include "../include/gputils/mem_utils.hpp"
 #include "../include/gputils/cuda_utils.hpp"
-#include "../include/gputils/system_utils.hpp"
+#include "../include/gputils/string_utils.hpp"          // nbytes_to_str()
 #include "../include/gputils/constexpr_functions.hpp"   // constexpr_is_pow2()
 
 
@@ -21,21 +21,34 @@ inline bool multiple_bits(int x)
     return (x & (x-1)) != 0;
 }
 
+inline bool non_single_bit(int x)
+{
+    return (x==0) || multiple_bits(x);
+}
+
 void check_aflags(int flags, const char *where)
 {
     if (!where)
 	where = "gputils::check_aflags()";
-	
+
+    if (_unlikely(flags == 0))
+	throw runtime_error(string(where) + ": af_flags==0 (probably uninitialized)");
+    
     if (_unlikely(flags & ~af_all_flags))
-	throw runtime_error(string(where) + ": unrecognized flags were specified");
+	throw runtime_error(string(where) + ": unrecognized af_flags were specified");
+
+    if (_unlikely(non_single_bit(flags & af_location_flags)))
+	throw runtime_error(string(where) + ": must specify precisely one of " + aflag_str(af_location_flags));
+
     if (_unlikely(multiple_bits(flags & af_initialization_flags)))
 	throw runtime_error(string(where) + ": can specify at most one of " + aflag_str(af_initialization_flags));
-    if (_unlikely(multiple_bits(flags & af_location_flags)))
-	throw runtime_error(string(where) + ": can specify at most one of " + aflag_str(af_location_flags));
-    if (_unlikely(flags & af_uninitialized))
-	throw runtime_error(string(where) + ": flags were uninitialized ('af_uninitialized' bit was set)");
-}
 
+    if (_unlikely(multiple_bits(flags & af_mmap_flags)))
+	throw runtime_error(string(where) + ": can specify at most one of " + aflag_str(af_mmap_flags));
+
+    if (_unlikely((flags & af_mmap_flags) && !(flags & (af_uhost | af_rhost))))
+	throw runtime_error(string(where) + ": if af_mmap_* flag is specified, then af_*host flag must also be specified");
+}
 
 // Helper for aflag_str().
 inline void _aflag_str(stringstream &ss, int &count, bool pred, const char *name)
@@ -54,13 +67,16 @@ string aflag_str(int flags)
     int count = 0;
     
     _aflag_str(ss, count, flags & af_gpu, "af_gpu");
+    _aflag_str(ss, count, flags & af_gpu, "af_uhost");
+    _aflag_str(ss, count, flags & af_gpu, "af_rhost");
+    _aflag_str(ss, count, flags & af_unified, "af_unified");    
     _aflag_str(ss, count, flags & af_zero, "af_zero");
-    _aflag_str(ss, count, flags & af_guard, "af_guard");
     _aflag_str(ss, count, flags & af_random, "af_random");
-    _aflag_str(ss, count, flags & af_unified, "af_unified");
+    _aflag_str(ss, count, flags & af_mmap_small, "af_mmap_small");
+    _aflag_str(ss, count, flags & af_mmap_huge, "af_mmap_huge");
+    _aflag_str(ss, count, flags & af_mmap_try_huge, "af_mmap_try_huge");
+    _aflag_str(ss, count, flags & af_guard, "af_guard");
     _aflag_str(ss, count, flags & af_verbose, "af_verbose");
-    _aflag_str(ss, count, flags & af_page_locked, "af_page_locked");
-    _aflag_str(ss, count, flags & af_uninitialized, "af_uninitialized");
     _aflag_str(ss, count, flags & ~af_all_flags, "(unrecognized flags)");
 
     if (count == 0)
@@ -77,13 +93,77 @@ string aflag_str(int flags)
 struct alloc_helper {
     static constexpr ssize_t nguard = 4096;
 
-    const ssize_t nbytes;
+    const ssize_t nbytes_requested;
     const int flags;
-    
-    char *base = nullptr;
+
+    ssize_t nbytes_allocated;
+    char *base = nullptr;    
     char *data = nullptr;
     char *gcopy = nullptr;
     
+
+    string mmap_error_message(ssize_t nbytes, bool hugepage_flag)
+    {
+	stringstream ss;
+	
+	ss << "mmap(" << nbytes_to_str(nbytes)
+	   << (hugepage_flag ? ", MAP_HUGETLB" : "")
+	   << ") failed: " << strerror(errno)
+	   << (hugepage_flag ? ". Try this: echo [NNN] > /proc/sys/vm/nr_hugepages" : "");
+
+	return ss.str();
+    }
+
+    
+    // _mmap(): helper method called by constructor.
+    // Only called if 'flags' contains an af_mmap_* flag, and check_aflags(flags) passes.
+    // Initializes this->base, this->nbytes_allocated (including padding).
+    // Does not call cudaRegisterMemory() -- that's done by the caller!
+    
+    inline void _mmap(ssize_t nbytes_unpadded)
+    {
+	static constexpr int page_size = 4 * 1024;
+	static constexpr int hugepage_size = 2 * 1024 * 1024;
+	
+	int pflags = PROT_READ | PROT_WRITE;
+	int mflags = MAP_PRIVATE | MAP_ANONYMOUS;  // no MAP_HUGETLB
+
+	assert(flags & af_mmap_flags);
+	
+	if (flags & (af_mmap_huge | af_mmap_try_huge)) {
+	    static_assert(constexpr_is_pow2(hugepage_size));
+	    static constexpr ssize_t mask = hugepage_size - 1;
+	    
+	    this->nbytes_allocated = (nbytes_unpadded + mask) & (~mask);
+	    this->base = (char *) mmap(NULL, nbytes_allocated, pflags, mflags | MAP_HUGETLB, -1, 0);  // note MAP_HUGETLB
+	    
+	    if (base != MAP_FAILED)
+		return;
+
+	    if (flags & af_mmap_try_huge) {
+		// Temporarily buffer in stringstream, to reduce probability of interleaved output in multithreaded programs.
+		stringstream ss;
+		ss << "Warning: " << mmap_error_message(nbytes_allocated,true) << "\n";
+		cout << ss.str() << flush;
+	    }
+	}
+
+	if (flags & (af_mmap_small | af_mmap_try_huge)) {
+	    static_assert(constexpr_is_pow2(page_size));
+	    static constexpr ssize_t mask = page_size - 1;
+	    
+	    this->nbytes_allocated = (nbytes_unpadded + mask) & (~mask);
+	    this->base = (char *) mmap(NULL, nbytes_allocated, pflags, mflags, -1, 0);   // note no MAP_HUGETLB
+	    
+	    if (base != MAP_FAILED)
+		return;
+	}
+
+	bool hugepage_flag = flags & af_mmap_huge;
+	string err_msg = mmap_error_message(nbytes_allocated, hugepage_flag);
+	throw runtime_error(err_msg);
+    }
+
 
     // Helper for constructor
     void fill(void *dst, const void *src, ssize_t nbytes)
@@ -95,46 +175,76 @@ struct alloc_helper {
     }
     
     
-    alloc_helper(ssize_t nbytes_, int flags_) :
-	nbytes(nbytes_), flags(flags_)
+    alloc_helper(ssize_t nbytes, int flags_) :
+	nbytes_requested(nbytes), flags(flags_)
     {
-	check_aflags(flags, "gputils::alloc()");
+	check_aflags(flags, "af_alloc");
 	
 	ssize_t g = (flags & af_guard) ? nguard : 0;
-	ssize_t nalloc = nbytes + 2*g;
+	this->nbytes_allocated = nbytes_requested + 2*g;
 
-	// Allocate memory
-	if (flags & af_gpu)
-	    CUDA_CALL(cudaMalloc((void **) &this->base, nalloc));
-	else if (flags & af_unified)
-	    CUDA_CALL(cudaMallocManaged((void **) &this->base, nalloc, cudaMemAttachGlobal));
-	else if (flags & af_page_locked)
-	    CUDA_CALL(cudaHostAlloc((void **) &this->base, nalloc, 0));
-	else if (posix_memalign((void **) &this->base, 128, nalloc))
-	    throw std::runtime_error("gputils::alloc(): couldn't allocate " + to_string(nalloc) + " bytes");
-
-	this->data = base + g;
-
-	// Keep this part in sync with "Allocate memory" a few lines above
-	if (flags & af_verbose) {
-	    if (flags & af_gpu)
-		cout << "cudaMalloc";
-	    else if (flags & af_unified)
-		cout << "cudaMallocManaged";
-	    else if (flags & af_page_locked)
-		cout << "cudaHostAlloc";
-	    else
-		cout << "posix_memalign";
-	    
-	    cout << "(" << nalloc << "): " << ((void *) base);
-	    if (base != data)
-		cout << ", " << ((void *) data);
-	    cout << endl;
+	// Step 1: allocate memory, initializing this->base, this->nbytes_allocated, this->data.
+	// This handles all flags except af_verbose, af_zero, af_guard.
+	
+	if (flags & af_mmap_flags) {
+	    // Note: this->_mmap() initializes this->base, and updates the value of this->nbytes_allocated.
+	    this->_mmap(nbytes_allocated);
+	    if (flags & af_rhost)
+		CUDA_CALL(cudaHostRegister(base, nbytes_allocated, cudaHostRegisterDefault));
 	}
+	else if (flags & af_gpu)
+	    CUDA_CALL(cudaMalloc((void **) &this->base, this->nbytes_allocated));
+	else if (flags & af_unified)
+	    CUDA_CALL(cudaMallocManaged((void **) &this->base, this->nbytes_allocated, cudaMemAttachGlobal));
+	else if (flags & af_rhost)
+	    CUDA_CALL(cudaHostAlloc((void **) &this->base, this->nbytes_allocated, 0));
+	else if (posix_memalign((void **) &this->base, 128, this->nbytes_allocated))
+	    throw std::runtime_error("gputils::alloc(): couldn't allocate " + to_string(nbytes_allocated) + " bytes");
 	
 	assert(base != nullptr);
+	assert(base != MAP_FAILED);
+	assert(nbytes_allocated >= nbytes_requested);
+	
+	this->data = base + g;
 
-	if (flags & af_zero) {
+	// Step 2: if verbose, announce that memory has been allocated (keep in sync with Step 1 by hand).
+	
+	if (flags & af_verbose) {
+	    // Temporarily buffer in stringstream, to reduce probability of interleaved output in multithreaded programs.
+	    stringstream ss;
+	    
+	    if (flags & af_mmap_flags)
+		ss << "mmap";
+	    else if (flags & af_gpu)
+		ss << "cudaMalloc";
+	    else if (flags & af_unified)
+		ss << "cudaMallocManaged";
+	    else if (flags & af_rhost)
+		ss << "cudaHostAlloc";
+	    else
+		ss << "posix_memalign";
+	    
+	    ss << "(" << nbytes_requested;
+	    if (nbytes_requested < nbytes_allocated)
+		ss << " -> " << nbytes_allocated;
+
+	    ss << ")";
+	    if ((flags & af_mmap_flags) && (flags & af_rhost))
+		ss << " -> cudaHostRegister()";
+
+	    ss << ": " << ((void *) base);
+	    if (base != data)
+		ss << " [data=" << ((void *) data) << "]";
+
+	    ss << "\n";
+	    cout << ss.str() << flush;
+	}
+
+	// Step 3: handle af_zero, af_guard.
+	
+	if ((flags & af_zero) && !(flags & af_mmap_flags)) {
+	    // Note: if memory is allocated with mmap(), then it is automatically zeroed.
+	    // (At least on Linux, the man page states that MAP_ANONYMOUS mappings are zeroed.)
 	    if (flags & af_gpu)
 		CUDA_CALL(cudaMemset(data, 0, nbytes));
 	    else
@@ -147,7 +257,7 @@ struct alloc_helper {
 	    randomize(gcopy, 2*nguard);
 	    
 	    fill(base, gcopy, nguard);
-	    fill(base + nguard + nbytes, gcopy + nguard, nguard);
+	    fill(base + nguard + nbytes_requested, gcopy + nguard, nguard);
 	}
     }
 
@@ -168,7 +278,7 @@ struct alloc_helper {
 	    assert(p != nullptr);
 
 	    CUDA_CALL_ABORT(cudaMemcpy(p, base, nguard, cudaMemcpyDeviceToHost));
-	    CUDA_CALL_ABORT(cudaMemcpy(p + nguard, base + nguard + nbytes, nguard, cudaMemcpyDeviceToHost));
+	    CUDA_CALL_ABORT(cudaMemcpy(p + nguard, base + nguard + nbytes_requested, nguard, cudaMemcpyDeviceToHost));
 
 	    // If this fails, buffer overflow occurred.
 	    assert(memcmp(p, gcopy, 2*nguard) == 0);
@@ -177,13 +287,12 @@ struct alloc_helper {
 	else {
 	    // If these fail, buffer overflow occurred.
 	    assert(memcmp(base, gcopy, nguard) == 0);
-	    assert(memcmp(base + nguard + nbytes, gcopy + nguard, nguard) == 0);
+	    assert(memcmp(base + nguard + nbytes_requested, gcopy + nguard, nguard) == 0);
 	}	
     }
     
 
-    // operator() is called when the shared_ptr is deleted, in the
-    // case where one of the flags (af_guard | af_verbose) is specified.
+    // operator(): called by shared_ptr deleter, works for any combination of af_flags.
     //
     // Note: we call assert() instead of throwing exceptions, since
     // shared_ptr deleters aren't supposed to throw exceptions.
@@ -197,23 +306,41 @@ struct alloc_helper {
 
 	// Keep this part in sync with "Deallocate memory" just below.
 	if (flags & af_verbose) {
-	    if (flags & (af_gpu | af_unified))
-		cout << "cudaFree";
-	    else if (flags & af_page_locked)
-		cout << "cudaFreeHost";
-	    else
-		cout << "free";
+	    // Temporarily buffer in stringstream, to reduce probability of interleaved output in multithreaded programs.
+	    stringstream ss;
 
-	    cout << "(" << ((void *) base) << ")" << endl;
+	    if ((flags & af_mmap_flags) && (flags & af_rhost))
+		ss << "cudaHostUnregister() -> munmap";
+	    else if (flags & af_mmap_flags)
+		ss << "munmap";
+	    else if (flags & (af_gpu | af_unified))
+		ss << "cudaFree";
+	    else if (flags & af_rhost)
+		ss << "cudaFreeHost";
+	    else
+		ss << "free";
+
+	    ss << "(" << ((void *) base) << ")\n";
+	    cout << ss.str() << flush;
 	}
 
-	// Deallocate memory
-	if (flags & (af_gpu | af_unified))
+	// Deallocate memory. Keep this part in sync with "Step 1: allocate memory..." in constructor.
+	
+	if (flags & af_mmap_flags) {
+	    if (flags & af_rhost)
+		CUDA_CALL_ABORT(cudaHostUnregister(base));
+	    int munmap_err = munmap(base, nbytes_allocated);
+	    assert(munmap_err == 0);
+	}
+	else if (flags & (af_gpu | af_unified))
 	    CUDA_CALL_ABORT(cudaFree(base));
-	else if (flags & af_page_locked)
+	else if (flags & af_rhost)
 	    CUDA_CALL_ABORT(cudaFreeHost(base));
 	else
 	    free(base);
+	
+	this->nbytes_allocated = 0;
+	this->base = this->data = this->gcopy = nullptr;
     }
 };
 
@@ -223,14 +350,20 @@ shared_ptr<void> _af_alloc(ssize_t nbytes, int flags)
 {
     alloc_helper h(nbytes, flags);
 
-    // Keep this part in sync with "Deallocate memory"
+    // Keep this part in sync with "Step 1: allocate memory..."
     // in 'struct alloc_helper' above.
     
-    if (flags & (af_guard | af_verbose))
+    if (flags & (af_guard | af_verbose | af_mmap_flags)) {
+	
+	// In these cases, shared_ptr deletion logic is complicated enough that
+	// we need alloc_helper::operator(). In remaining cases, we can use a
+	// simple deleter (cudaFree(), cudaFreeHost(), free()).
+	
 	return shared_ptr<void> (h.data, h);
+    }
     else if (flags & (af_gpu | af_unified))
 	return shared_ptr<void> (h.data, cudaFree);
-    else if (flags & af_page_locked)
+    else if (flags & af_rhost)
 	return shared_ptr<void> (h.data, cudaFreeHost);
     else
 	return shared_ptr<void> (h.data, free);
@@ -240,85 +373,17 @@ shared_ptr<void> _af_alloc(ssize_t nbytes, int flags)
 // -------------------------------------------------------------------------------------------------
 
 
-// FIXME oops, can get rid of this in favor of cudaMemcpyDefault??
-inline cudaMemcpyKind af_copy_kind(int dst_flags, int src_flags)
-{
-    bool hdst = !af_on_gpu(dst_flags);   // host-only
-    bool gdst = !af_on_host(dst_flags);  // gpu-only
-    bool hsrc = !af_on_gpu(src_flags);   // host-only
-    bool gsrc = !af_on_host(src_flags);  // gpu-only
-    
-    if (hdst)
-	return gsrc ? cudaMemcpyDeviceToHost : cudaMemcpyHostToHost;
-    if (gdst)
-	return hsrc ? cudaMemcpyHostToDevice : cudaMemcpyDeviceToDevice;
-    if (hsrc)
-	return cudaMemcpyHostToHost;
-    if (gsrc)
-	return cudaMemcpyDeviceToDevice;
-
-    // FIXME unified -> unified copy is ambiguous, how should we choose?
-    // Maybe it's best to add an argument to specify default 'kind'?
-    return cudaMemcpyDeviceToDevice;
-}
-
-
 void _af_copy(void *dst, int dst_flags, const void *src, int src_flags, ssize_t nbytes)
 {
     if (nbytes == 0)
 	return;
+
+    bool host_to_host = ((src_flags | dst_flags) & (af_gpu | af_unified)) == 0;
     
-    cudaMemcpyKind kind = af_copy_kind(dst_flags, src_flags);
-    CUDA_CALL(cudaMemcpy(dst, src, nbytes, kind));
-}
-
-
-// -------------------------------------------------------------------------------------------------
-
-
-// The 'hugepage_policy' arg has the following meaning:
-//   0 = Do not use 2M hugepages.
-//   1 = Try to use 2M hugepages. If this fails, silently fall back on 4K pages.
-//   2 = Try to use 2M hugepages. If this fails, fall back on 4K pages and print warning.
-//   3 = Require 2M hugepages. (Raise exception on failure.)
-
-
-// Returns bare pointer; caller is responsible for calling munmap(ptr,nalloc) [not munmap(ptr,nbytes)!]
-void *_make_mmap(ssize_t nbytes, ssize_t &nalloc, int hugepage_policy)
-{
-    static constexpr int hugepage_size = 2 * 1024 * 1024;
-    static_assert(constexpr_is_pow2(hugepage_size));
-    
-    assert(nbytes > 0);
-    assert((hugepage_policy >= 0) && (hugepage_policy <= 3));
-    
-    int pflags = PROT_READ | PROT_WRITE;
-    int mflags = MAP_PRIVATE | MAP_ANONYMOUS;  // no MAP_HUGETLB
-
-    if (hugepage_policy >= 1) {
-	static constexpr ssize_t s = hugepage_size-1;
-	nalloc = ((nbytes+s) & ~s);
-
-	void *ret = mmap(NULL, nalloc, pflags, mflags | MAP_HUGETLB, -1, 0);
-	
-	if (ret != MAP_FAILED) {
-	    assert(ret != nullptr);  // paranoid
-	    return ret;
-	}
-
-	if (hugepage_policy >= 2) {
-	    stringstream ss;
-	    ss << "mmap() with hugepages failed: " << strerror(errno) << ". Try this: echo 1000 > /proc/sys/vm/nr_hugepages";
-	    
-	    if (hugepage_policy >= 3)
-		throw runtime_error(ss.str());
-
-	    cerr << ss.str() << "\n";
-	}
-    }
-
-    nalloc = nbytes;
-    return mmap_x(NULL, nalloc, pflags, mflags, -1, 0);
+    if (host_to_host)
+	memcpy(dst, src, nbytes);
+    else
+	CUDA_CALL(cudaMemcpy(dst, src, nbytes, cudaMemcpyDefault));
 }
 
 

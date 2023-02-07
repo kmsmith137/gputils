@@ -173,7 +173,7 @@ struct BitMapping
     {
 	const int n = (1 << rank);
 	
-	Array<int> ret({n});
+	Array<int> ret({n}, af_rhost);
 	for (int i = 0; i < n; i++)
 	    ret.data[i] = i;
 

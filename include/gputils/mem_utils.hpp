@@ -20,9 +20,8 @@ namespace gputils {
 
 
 // See below for a complete list of flags.
-// Note that default flags=0 allocates uninitialized memory on host.
 template<typename T>
-inline std::shared_ptr<T> af_alloc(ssize_t nelts, int flags=0);
+inline std::shared_ptr<T> af_alloc(ssize_t nelts, int flags);
 
 
 template<typename T>
@@ -30,30 +29,41 @@ inline void af_copy(T *dst, int dst_flags, const T *src, int src_flags, ssize_t 
 
 
 template<typename T>
-inline std::shared_ptr<T> af_clone(int dst_flags, const T *src, int src_flags, ssize_t nelts);
+inline std::shared_ptr<T> af_clone(int dst_flags, const T *src, ssize_t nelts);
 
 
 // -------------------------------------------------------------------------------------------------
 //
 // Flags for use in af_alloc().
-// Note: anticipate refining 'af_gpu', to allow multiple devices.
 // Note: anticipate refining 'af_unified', to toggle cudaMemAttachHost vs cudaMemAttachGlobal.
-// Note: anticipate refining 'af_page_locked' (e.g. cudaHostAllocWriteCombined).
+// Note: anticipate refining 'af_rhost' (e.g. cudaHostAllocWriteCombined).
 
 
-static constexpr int af_gpu = 0x01;                 // allocate on gpu
-static constexpr int af_zero = 0x10;                // zero allocated memory
-static constexpr int af_guard = 0x20;               // detect buffer overruns when freed (has overhead)
-static constexpr int af_random = 0x40;              // randomize allocated memory
-static constexpr int af_verbose = 0x080;            // prints verbose messages
-static constexpr int af_unified = 0x100;            // allocate unified (host+device) memory
-static constexpr int af_page_locked = 0x1000;       // allocate page-locked host memory
-static constexpr int af_uninitialized = 0x1000000;  // to catch uninitialized aflags (e.g. in Array)
+// Location flags: where is memory allocated?
+// Precisely one of these should be specified.
+static constexpr int af_gpu = 0x01;      // gpu memory
+static constexpr int af_uhost = 0x02;    // host memory, not registered with cuda runtime or page-locked
+static constexpr int af_rhost = 0x04;    // host memory, registered with cuda runtime and page-locked
+static constexpr int af_unified = 0x08;  // unified host+gpu memory (slow and never useful?)
+static constexpr int af_location_flags = af_gpu | af_uhost | af_rhost | af_unified;
 
-static constexpr int af_location_flags = af_gpu | af_unified | af_page_locked;
+// Initialization flags
+static constexpr int af_zero = 0x10;    // zero allocated memory
+static constexpr int af_random = 0x20;  // randomize allocated memory
 static constexpr int af_initialization_flags = af_zero | af_random;
+
+// Mmap flags: if specified (with af_uhost or af_rhost), then mmap/munmap will be used instead of malloc/free.
+static constexpr int af_mmap_small = 0x100;      // 4KB standard pages
+static constexpr int af_mmap_huge = 0x200;       // 2MB huge pages
+static constexpr int af_mmap_try_huge = 0x400;   // try huge pages, if fails then fall back to 4K pages, and print warning.
+static constexpr int af_mmap_flags = af_mmap_small | af_mmap_huge | af_mmap_try_huge;
+
+// Debugging flags
+static constexpr int af_guard = 0x1000;     // creates "guard" region before/after allocated memory
+static constexpr int af_verbose = 0x2000;   // prints messages on alloc/free
 static constexpr int af_debug_flags = af_guard | af_verbose;
-static constexpr int af_all_flags = af_location_flags | af_initialization_flags | af_debug_flags | af_uninitialized;
+static constexpr int af_all_flags = af_location_flags | af_initialization_flags | af_mmap_flags | af_debug_flags;
+
 
 // Throws exception if aflags are uninitialized or invalid.
 extern void check_aflags(int aflags, const char *where = nullptr);
@@ -104,9 +114,10 @@ inline std::shared_ptr<T> af_alloc(ssize_t nelts, int flags)
     // FIXME slow, memory-intensive way of randomizing array on GPU, by randomizing on CPU
     // and copying. It would be better to launch a kernel to randomize directly on GPU.
 
-    std::shared_ptr<T> host = std::reinterpret_pointer_cast<T> (_af_alloc(nbytes, 0));
+    int src_flags = af_rhost;
+    std::shared_ptr<T> host = std::reinterpret_pointer_cast<T> (_af_alloc(nbytes, src_flags));
     randomize(host.get(), nelts);
-    _af_copy(ret.get(), flags, host.get(), 0, nbytes);
+    af_copy(ret.get(), flags, host.get(), src_flags, nelts);
     return ret;
 }
 
@@ -125,40 +136,11 @@ inline void af_copy(T *dst, int dst_flags, const T *src, int src_flags, ssize_t 
 
 
 template<typename T>
-inline std::shared_ptr<T> af_clone(int dst_flags, const T *src, int src_flags, ssize_t nelts)
+inline std::shared_ptr<T> af_clone(int dst_flags, const T *src, ssize_t nelts)
 {
     dst_flags &= ~af_initialization_flags;
     std::shared_ptr<T> ret = af_alloc<T> (nelts, dst_flags);
-    af_copy(ret.get(), dst_flags, src, src_flags, nelts);
-}
-
-
-// -------------------------------------------------------------------------------------------------
-//
-// Smart pointer interface to mmap().
-//
-// The 'hugepage_policy' arg has the following meaning:
-//   0 = Do not use 2M hugepages.
-//   1 = Try to use 2M hugepages. If this fails, silently fall back on 4K pages.
-//   2 = Try to use 2M hugepages. If this fails, fall back on 4K pages and print warning.
-//   3 = Require 2M hugepages. (Raise exception on failure.)
-
-
-// Returns bare pointer; caller is responsible for calling munmap(ptr,nalloc) [not munmap(ptr,nbytes)!]
-extern void *_make_mmap(ssize_t nbytes, ssize_t &nalloc, int hugepage_policy);
-
-
-// Smart pointer which automatically calls munmap() on deletion.
-template<typename T>
-std::shared_ptr<T> make_mmap(ssize_t nelts, int hugepage_policy)
-{
-    ssize_t nalloc = 0;
-    
-    void *ret = _make_mmap(nelts * sizeof(T), nalloc, hugepage_policy);
-    assert(nalloc > 0);
-
-    auto deleter = [nalloc](void *p) { munmap_x(p,nalloc); };
-    return std::shared_ptr<T> (reinterpret_cast<T*> (ret), deleter);
+    af_copy(ret.get(), src, nelts);
 }
 
 

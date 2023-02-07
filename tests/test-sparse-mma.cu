@@ -83,7 +83,7 @@ static Array<float> unpack_bmat(const Array<float> &b_arr)
 
     assert(b_arr.shape_equals({2,32,2}));   // (r,t,b)
     
-    Array<float> b_mat({16,8});
+    Array<float> b_mat({16,8}, af_rhost);
     
     for (int j = 0; j < 16; j++) {
 	for (int k = 0; k < 8; k++) {
@@ -105,7 +105,7 @@ static Array<float> unpack_cmat(const Array<float> &c_arr)
 
     assert(c_arr.shape_equals({2,32,2}));   // (r,t,b)
     
-    Array<float> c_mat({16,8});
+    Array<float> c_mat({16,8}, af_rhost);
 
     for (int i = 0; i < 16; i++) {
 	for (int k = 0; k < 8; k++) {

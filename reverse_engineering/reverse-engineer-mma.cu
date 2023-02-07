@@ -142,7 +142,7 @@ __host__ Array<T> slow_matmul(const Array<T> &a_, const Array<T> &b_)
     int p = a.shape[1];
     int n = b.shape[1];
 
-    Array<T> c({m,n});
+    Array<T> c({m,n}, af_rhost);
 
     for (int i = 0; i < m; i++) {
 	for (int j = 0; j < n; j++) {
@@ -372,7 +372,7 @@ struct MatParamsInt : public MatParamsBase<Nrows, Ncols, BitDepth>
 	Array<int> src = src_.to_host();
 	assert(src.shape_equals({fragment_length}));
 	
-	Array<int> dst({nrows, ncols});
+	Array<int> dst({nrows, ncols}, af_rhost);
 
 	for (int ir = 0; ir < nrows; ir++) {
 	    for (int ic = 0; ic < ncols; ic++) {
@@ -479,7 +479,7 @@ struct MatParamsFloat16 : MatParamsBase<Nrows, Ncols, 16>
 	Array<float> src = src_.to_host();
 	assert(src.shape_equals({fragment_length}));
 	
-	Array<float> dst({nrows, ncols});
+	Array<float> dst({nrows,ncols}, af_rhost);
 
 	for (int ir = 0; ir < nrows; ir++) {
 	    for (int ic = 0; ic < ncols; ic++) {
@@ -611,7 +611,7 @@ struct MmaParams
 	Array<Dtype> cdst = this->run_kernel(asrc, bsrc);
 	assert(cdst.shape_equals({na+1, nb+1, CParams::fragment_length}));
 
-	Array<int> coupling({na+1,nb+1});
+	Array<int> coupling({na+1,nb+1}, af_rhost);
 	for (int i = 0; i < na+1; i++) {
 	    for (int j = 0; j < nb+1; j++) {
 		coupling.at({i,j}) = -1;
