@@ -20,6 +20,9 @@
 // File: RAII wrapper for unix file descriptor.
 #include "gputils/File.hpp"
 
+// Socket: RAII wrapper for network socket.
+#include "gputils/Socket.hpp"
+
 // ThreadSafeRingBuffer<T>: pass data between producer/consumer threads.
 #include "gputils/ThreadSafeRingBuffer.hpp"
 

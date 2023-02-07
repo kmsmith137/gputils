@@ -12,6 +12,7 @@ HFILES = \
   include/gputils/CudaStreamPool.hpp \
   include/gputils/Epoll.hpp \
   include/gputils/File.hpp \
+  include/gputils/Socket.hpp \
   include/gputils/ThreadSafeRingBuffer.hpp \
   include/gputils/complex_type_traits.hpp \
   include/gputils/constexpr_functions.hpp \
@@ -31,6 +32,7 @@ OFILES = \
   src/CudaStreamPool.o \
   src/Epoll.o \
   src/File.o \
+  src/Socket.o \
   src/cuda_utils.o \
   src/mem_utils.o \
   src/rand_utils.o \
