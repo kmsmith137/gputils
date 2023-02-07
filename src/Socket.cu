@@ -1,8 +1,8 @@
 #include "../include/gputils/Socket.hpp"
-#include "../include/gputils/system_utils.hpp"
 
 #include <fcntl.h>
 #include <unistd.h>
+#include <arpa/inet.h>
 
 #include <cassert>
 #include <sstream>
@@ -23,40 +23,96 @@ namespace gputils {
 #endif
 
 
-inline void check_initialized(const Socket *s, const char *method_name)
+// -------------------------------------------------------------------------------------------------
+
+
+inline string errstr(const string &func_name)
 {
-    if (_unlikely(s->fd < 0)) {
+    stringstream ss;
+    ss << func_name << "() failed: " << strerror(errno);
+    return ss.str();
+}
+
+inline string errstr(int fd, const string &func_name)
+{
+    if (fd < 0) {
 	stringstream ss;
-	ss << "Socket::" << method_name << "() called on uninitialized or closed socket";
+	ss << func_name << "() called on uninitalized or closed socket";
+	return ss.str();
+    }
+
+    return errstr(func_name);
+}
+
+
+// -------------------------------------------------------------------------------------------------
+
+
+static void inet_pton_x(struct sockaddr_in &saddr, const string &ip_addr, short port)
+{
+    memset(&saddr, 0, sizeof(saddr));
+
+    saddr.sin_family = AF_INET;
+    saddr.sin_port = htons(port);   // note htons() here!
+    
+    int err = inet_pton(AF_INET, ip_addr.c_str(), &saddr.sin_addr);
+    
+    if (err < 0) {
+	stringstream ss;
+	ss << "inet_pton() failed: " << strerror(errno);
+	throw runtime_error(ss.str());
+    }
+
+    if (err == 0) {
+	stringstream ss;
+	ss << "invalid IPv4 address: '" << ip_addr << "'";
 	throw runtime_error(ss.str());
     }
 }
 
 
+// -------------------------------------------------------------------------------------------------
+
+
 Socket::Socket(int domain, int type, int protocol)
 {
-    this->fd = socket_x(domain, type, protocol);
+    this->fd = socket(domain, type, protocol);
+
+    if (_unlikely(fd < 0))
+	throw runtime_error(errstr("socket"));
 }
 
 
 void Socket::connect(const std::string &ip_addr, short port)
 {
-    check_initialized(this, "connect");
-    connect_x(this->fd, ip_addr, port);
+    struct sockaddr_in saddr;
+    inet_pton_x(saddr, ip_addr, port);
+
+    int err = ::connect(this->fd, (const struct sockaddr *) &saddr, sizeof(saddr));
+
+    if (_unlikely(err < 0))
+	throw runtime_error(errstr(fd, "Socket::connect"));
 }
 
 
 void Socket::bind(const std::string &ip_addr, short port)
 {
-    check_initialized(this, "bind");
-    bind_x(this->fd, ip_addr, port);
+    struct sockaddr_in saddr;
+    inet_pton_x(saddr, ip_addr, port);
+
+    int err = ::bind(this->fd, (const struct sockaddr *) &saddr, sizeof(saddr));
+    
+    if (_unlikely(err < 0))
+	throw runtime_error(errstr(fd, "Socket::bind"));
 }
 
 
 void Socket::listen(int backlog)
 {
-    check_initialized(this, "listen");
-    listen_x(this->fd, backlog);
+    int err = ::listen(fd, backlog);
+
+    if (_unlikely(err < 0))
+	throw runtime_error(errstr(fd, "Socket::listen"));
 }
 
 
@@ -70,11 +126,8 @@ void Socket::close()
     this->fd = -1;
     this->zerocopy = false;
 
-    if (_unlikely(err < 0)) {
-	stringstream ss;
-	ss << "Socket(): close() failed?! (" << strerror(errno) << ")\n";
-	cout << ss.str() << flush;
-    }
+    if (_unlikely(err < 0))
+	cout << errstr("Socket::close") << endl;
 }
 
     
@@ -82,14 +135,11 @@ ssize_t Socket::read(void *buf, ssize_t count)
 {
     assert(count > 0);
     ssize_t nbytes = ::read(this->fd, buf, count);
-    
-    if (_unlikely(nbytes < 0)) {
-	check_initialized(this, "read");
-	stringstream ss;
-	ss << "Socket::read() failed: " << strerror(errno);
-	throw runtime_error(ss.str());
-    }
 
+    if (_unlikely(nbytes < 0))
+	throw runtime_error(errstr(fd, "Socket::read"));
+
+    assert(nbytes <= count);
     return nbytes;
 }
 
@@ -99,39 +149,67 @@ ssize_t Socket::send(const void *buf, ssize_t count, int flags)
     if (zerocopy)
 	flags |= MSG_ZEROCOPY;
 
-    check_initialized(this, "send");
-    return send_x(this->fd, const_cast<void *> (buf), count, flags);
+    assert(count > 0);
+    ssize_t nbytes = ::send(this->fd, buf, count, flags);
+
+    if (_unlikely(nbytes < 0))
+	throw runtime_error(errstr(fd, "Socket::send"));
+
+    // Can send() return zero? If so, then this next line needs removal or rethinking.
+    if (_unlikely(nbytes == 0))
+	throw runtime_error("Socket::send() returned zero?!");
+
+    assert(nbytes <= count);
+    return nbytes;
 }
 
 
 Socket Socket::accept()
 {
-    check_initialized(this, "accept");
+    // FIXME currently throwing away sender's IP address
+    sockaddr_in saddr_throwaway;
+    socklen_t saddr_len = sizeof(saddr_throwaway);
 
     Socket ret;
-    ret.fd = accept_x(this->fd);
+    ret.fd = ::accept(fd, (struct sockaddr *) &saddr_throwaway, &saddr_len);
+
+    if (_unlikely(ret.fd < 0))
+	throw runtime_error(errstr(fd, "Socket::accept"));
+
     return ret;
 }
 
 
 void Socket::getopt(int level, int optname, void *optval, socklen_t *optlen)
 {
-    check_initialized(this, "getopt");
-    getsockopt_x(this->fd, level, optname, optval, optlen);
+    assert(optval != nullptr);
+    assert(optlen != nullptr);
+
+    int err = getsockopt(fd, level, optname, optval, optlen);
+    
+    if (_unlikely((err < 0)))
+	throw runtime_error(errstr(fd, "getsockopt"));
 }
 
 
 void Socket::setopt(int level, int optname, const void *optval, socklen_t optlen)
 {
-    check_initialized(this, "setopt");
-    setsockopt_x(this->fd, level, optname, optval, optlen);
+    assert(optval != nullptr);
+	
+    int err = setsockopt(fd, level, optname, optval, optlen);
+
+    if (_unlikely(err < 0))
+	throw runtime_error(errstr(fd, "setsockopt"));
 }
 
 
 void Socket::set_reuseaddr()
 {
     int on = 1;
-    this->setopt(SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
+    int err = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
+
+    if (err < 0)
+	throw runtime_error(errstr(fd, "Socket::set_reuseaddr"));
 }
 
 
@@ -139,20 +217,13 @@ void Socket::set_nonblocking()
 {
     int flags = fcntl(this->fd, F_GETFL);
     
-    if (_unlikely(flags < 0)) {
-	check_initialized(this, "set_nonblocking");
-	stringstream ss;
-	ss << "Socket::set_nonblocking(): fcntl(F_GETFL) failed: " << strerror(errno);
-	throw runtime_error(ss.str());
-    }
+    if (_unlikely(flags < 0))
+	throw runtime_error(errstr(fd, "Socket::set_nonblocking: F_GETFL fcntl"));
 
     int err = fcntl(this->fd, F_SETFL, flags | O_NONBLOCK);
 
-    if (_unlikely(err < 0)) {
-	stringstream ss;
-	ss << "Socket::set_nonblocking(): fcntl(F_SETFL) failed: " << strerror(errno);
-	throw runtime_error(ss.str());
-    }
+    if (_unlikely(err < 0))
+	throw runtime_error(errstr(fd, "Socket::set_nonblocking: F_SETFL fcntl"));
 }
 
 
@@ -170,14 +241,20 @@ void Socket::set_pacing_rate(double bytes_per_sec)
     }
 
     uint32_t b = uint32_t(bytes_per_sec + 0.5);
-    this->setopt(SOL_SOCKET, SO_MAX_PACING_RATE, &b, sizeof(b));
+    int err = setsockopt(fd, SOL_SOCKET, SO_MAX_PACING_RATE, &b, sizeof(b));
+
+    if (_unlikely(err < 0))
+	throw runtime_error(errstr(fd, "Socket::set_pacing_rate"));
 }
  
 
 void Socket::set_zerocopy()
 {
       int on = 1;
-      this->setopt(SOL_SOCKET, SO_ZEROCOPY, &on, sizeof(on));
+      int err = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
+
+      if (err < 0)
+	  throw runtime_error(errstr(fd, "Socket::set_zerocopy"));
 
       // If the 'zerocopy' flag is set, then MSG_ZEROCOPY will be included in future calls to send().
       this->zerocopy = true;

@@ -24,6 +24,7 @@ struct File
     ~File();
 
     void write(const void *p, ssize_t nbytes);
+    // FIXME add more member functions, including read().
     
     // The File class is noncopyable, but if copy semantics are needed, you can do
     //   shared_ptr<File> fp = make_shared<File> (filename, oflags, mode);

@@ -1,14 +1,12 @@
+#include "../include/gputils/system_utils.hpp"
+
 #include <thread>
 #include <cassert>
 #include <sstream>
 #include <stdexcept>
-#include <sched.h>
 #include <unistd.h>
 #include <pthread.h>
 #include <sys/stat.h>
-#include <arpa/inet.h>
-
-#include "../include/gputils/system_utils.hpp"
 
 using namespace std;
 
@@ -80,179 +78,6 @@ void munmap_x(void *addr, ssize_t length)
 	ss << "mmap() failed: " << strerror(errno);
 	throw runtime_error(ss.str());
     }
-}
-
-
-ssize_t read_x(int fd, void *buf, ssize_t count)
-{
-    assert(count > 0);
-    ssize_t nbytes = read(fd, buf, count);
-
-    if (nbytes < 0) {
-	stringstream ss;
-	ss << "read() failed: " << strerror(errno);
-	throw runtime_error(ss.str());
-    }
-
-    // Returns 0 on EOF.
-    return nbytes;
-}
-
-
-// -------------------------------------------------------------------------------------------------
-
-
-int socket_x(int domain, int type, int protocol)
-{
-    int fd = socket(domain, type, protocol);
-
-    if (fd < 0) {
-	stringstream ss;
-	ss << "socket() failed: " << strerror(errno);
-	throw runtime_error(ss.str());
-    }
-
-    return fd;
-}
-
-
-int accept_x(int sockfd, sockaddr_in *addr)
-{
-    sockaddr_in saddr;
-    addr = addr ? &saddr : addr;
-
-    socklen_t addrlen = sizeof(sockaddr_in);
-    int fd = accept(sockfd, (struct sockaddr *) addr, &addrlen);
-
-    if (fd < 0) {
-	stringstream ss;
-	ss << "accept() failed: " << strerror(errno);
-	throw runtime_error(ss.str());
-    }    
-
-    return fd;
-}
-
-
-void listen_x(int sockfd, int backlog)
-{
-    int err = listen(sockfd, backlog);
-
-    if (err < 0) {
-	stringstream ss;
-	ss << "listen() failed: " << strerror(errno);
-	throw runtime_error(ss.str());
-    }    
-}
-
-
-void bind_x(int sockfd, const struct sockaddr_in &saddr)
-{
-    int err = bind(sockfd, (const struct sockaddr *) &saddr, sizeof(saddr));
-    
-    if (err < 0) {
-	stringstream ss;
-	ss << "bind() failed: " << strerror(errno);
-	throw runtime_error(ss.str());
-    }
-}
-
-
-void bind_x(int sockfd, const string &ip_addr, short port)
-{
-    struct sockaddr_in saddr;
-    inet_pton_x(saddr, ip_addr, port);
-    bind_x(sockfd, saddr);
-}
-
-
-void connect_x(int sockfd, const struct sockaddr_in &saddr)
-{
-    int err = connect(sockfd, (const struct sockaddr *) &saddr, sizeof(saddr));
-    
-    if (err < 0) {
-	stringstream ss;
-	ss << "connect() failed: " << strerror(errno);
-	throw runtime_error(ss.str());
-    }
-}
-    
-void connect_x(int sockfd, const string &ip_addr, short port)
-{
-    struct sockaddr_in saddr;
-    inet_pton_x(saddr, ip_addr, port);
-    connect_x(sockfd, saddr);
-}
-
-
-void getsockopt_x(int sockfd, int level, int optname, void *optval, socklen_t *optlen)
-{
-    assert(optval != nullptr);
-    assert(optlen != nullptr);
-
-    int err = getsockopt(sockfd, level, optname, optval, optlen);
-    
-    if (err < 0) {
-	stringstream ss;
-	ss << "getsockopt() failed: " << strerror(errno);
-	throw runtime_error(ss.str());
-    }
-}
-
-
-void setsockopt_x(int sockfd, int level, int optname, const void *optval, socklen_t optlen)
-{
-    assert(optval != nullptr);
-
-    int err = setsockopt(sockfd, level, optname, optval, optlen);
-
-    if (err < 0) {
-	stringstream ss;
-	ss << "setsockopt() failed: " << strerror(errno);
-	throw runtime_error(ss.str());
-    }
-}
-
-
-void inet_pton_x(struct sockaddr_in &saddr, const string &ip_addr, short port)
-{
-    memset(&saddr, 0, sizeof(saddr));
-
-    saddr.sin_family = AF_INET;
-    saddr.sin_port = htons(port);   // note htons() here!
-    
-    int err = inet_pton(AF_INET, ip_addr.c_str(), &saddr.sin_addr);
-    
-    if (err < 0) {
-	stringstream ss;
-	ss << "inet_pton() failed: " << strerror(errno);
-	throw runtime_error(ss.str());
-    }
-
-    if (err == 0) {
-	stringstream ss;
-	ss << "invalid IPv4 address: '" << ip_addr << "'";
-	throw runtime_error(ss.str());
-    }
-}
-
-
-ssize_t send_x(int sockfd, void *buf, ssize_t count, int flags)
-{
-    assert(count > 0);
-    ssize_t nbytes = send(sockfd, buf, count, flags);
-
-    if (nbytes < 0) {
-	stringstream ss;
-	ss << "send() failed: " << strerror(errno);
-	throw runtime_error(ss.str());
-    }
-
-    // Can send() return zero? If so, then this next line needs removal or rethinking.
-    if (nbytes == 0)
-	throw runtime_error("send() returned zero?!");
-    
-    return nbytes;
 }
 
 
