@@ -46,16 +46,20 @@ struct Epoll
     // Events returned by wait() are stored here.
     // Note that wait() returns the number of events (which is <= events.size()).
     std::vector<epoll_event> events;
-    
-    Epoll(bool close_on_exec=false);
-    ~Epoll();
+
+    // If constructor is called with initialize=false, then Epoll::initialize() must be called later.
+    Epoll(bool initialize=true, bool close_on_exec=false);
+    ~Epoll() { this->close(); }
 
     void add_fd(int fd, struct epoll_event &ev);
-    // To add later: modify_fd(fd,ev), delete_fd(ev).
+    // To add later: modify_fd(fd,ev), delete_fd(fd).
 
     // Returns number of events (or zero, if timeout expires).
     // Negative timeout means "blocking". Zero timeout is nonblocking.
     int wait(int timeout_ms=-1);
+
+    void initialize(bool close_on_exec=false);
+    void close();
 	
     // The Epoll class is noncopyable, but if copy semantics are needed, you can do
     //   shared_ptr<Epoll> ep = make_shared<Epoll> ();
