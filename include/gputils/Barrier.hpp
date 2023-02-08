@@ -14,21 +14,24 @@ namespace gputils {
 // Barrier: synchronization point between N threads
 
 struct Barrier
-{
-    const int nthreads;
-        
+{        
     std::mutex lock;
     std::condition_variable cv;
 
+    // Protected by lock.
+    int nthreads = 0;
     int nthreads_waiting = 0;
     int wait_count = 0;
     bool aborted = false;
     std::string abort_msg;
-    
+
+    // If constructor is called with nthreads=0, then 'nthreads' must be
+    // set later, with a call to initialize().
     Barrier(int nthreads);
 
     void wait();
     void abort(const std::string &msg);
+    void initialize(int nthreads);
     
     // Noncopyable
     Barrier(const Barrier &) = delete;
