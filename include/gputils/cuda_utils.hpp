@@ -68,11 +68,9 @@ std::runtime_error make_cuda_exception(cudaError_t xerr, const char *xstr, const
 
 
 struct CudaStreamWrapper {
-protected:
     // Reminder: cudaStream_t is a typedef for (CUstream_st *)
     std::shared_ptr<CUstream_st> p;
 
-public:
     CudaStreamWrapper()
     {
 	cudaStream_t s;
@@ -85,6 +83,9 @@ public:
     // conversion operator.
     
     operator cudaStream_t() { return p.get(); }
+
+    // Note: you can also get RAII semantics for streams by working with shared_ptrs directly, e.g.
+    //   shared_ptr<CUstream_st> stream = CudaStreamWrapper().p;
 };
 
 
@@ -92,11 +93,9 @@ public:
 
 
 struct CudaEventWrapper {
-protected:
     // Reminder: cudaEvent_t is a typedef for (CUevent_st *)
     std::shared_ptr<CUevent_st> p;
 
-public:
     CudaEventWrapper()
     {
 	cudaEvent_t e;
@@ -109,6 +108,9 @@ public:
     // conversion operator.
     
     operator cudaEvent_t() { return p.get(); }
+    
+    // Note: you can also get RAII semantics for events by working with shared_ptrs directly, e.g.
+    //   shared_ptr<CUevent_st> event = CudaEventWrapper().p;
 };
 
 
