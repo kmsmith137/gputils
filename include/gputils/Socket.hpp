@@ -20,7 +20,9 @@ struct Socket
     // For TCP, use (domain,type) = (PF_INET,SOCK_STREAM). See "cheat sheet" below.
     Socket(int domain, int type, int protocol=0);
     Socket() { }
-
+    
+    ~Socket() { this->close(); }
+    
     void connect(const std::string &ip_addr, short port);
     void bind(const std::string &ip_addr, short port);
     void listen(int backlog=128);
