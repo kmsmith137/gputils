@@ -1,4 +1,5 @@
 #include "../include/gputils/system_utils.hpp"
+#include "../include/gputils/string_utils.hpp"
 
 #include <thread>
 #include <cassert>
@@ -7,6 +8,11 @@
 #include <unistd.h>
 #include <pthread.h>
 #include <sys/stat.h>
+
+// Branch predictor hint
+#ifndef _unlikely
+#define _unlikely(cond)  (__builtin_expect(cond,0))
+#endif
 
 using namespace std;
 
@@ -17,15 +23,36 @@ namespace gputils {
 #endif
 
 
+// -------------------------------------------------------------------------------------------------
+
+// FIXME variants of errstr() appear in many source files; define common version somewhere.
+// Maybe it's time for <gputils/asserts.hpp> which defines _unlikely(), assert macros, exception factory functions, etc?
+
+inline string errstr(const string &func_name)
+{
+    stringstream ss;
+    ss << func_name << "() failed: " << strerror(errno);
+    return ss.str();
+}
+
+template<typename T>
+inline string errstr(const string &func_name, const T &arg)
+{
+    stringstream ss;
+    ss << func_name << "(" << arg << ") failed: " << strerror(errno);
+    return ss.str();
+}
+
+
+// -------------------------------------------------------------------------------------------------
+
+
 void mkdir_x(const char *path, int mode)
 {
     int err = mkdir(path, mode);
     
-    if (err < 0) {
-	stringstream ss;
-	ss << "mkdir('" << path << "') failed: " << strerror(errno);  // FIXME should show mode
-	throw runtime_error(ss.str());
-    }
+    if (_unlikely(err < 0))
+	throw runtime_error(errstr("mkdir", path));
 }
 
 
@@ -42,25 +69,20 @@ void mlockall_x(int flags)
     //   - if mlockall() fails, then exception text should pretty-print flags
     
     int err = mlockall(flags);
-    
-    if (err < 0) {
-	stringstream ss;
-	ss << "mlockall() failed: " << strerror(errno);
-	throw runtime_error(ss.str());
-    }
+
+    if (_unlikely(err < 0))
+	throw runtime_error(errstr("mlockall"));
 }
 
 
 void *mmap_x(void *addr, ssize_t length, int prot, int flags, int fd, off_t offset)
 {
     assert(length > 0);
+    
     void *ret = mmap(addr, length, prot, flags, fd, offset);
 
-    if (ret == MAP_FAILED) {
-	stringstream ss;
-	ss << "mmap() failed: " << strerror(errno);
-	throw runtime_error(ss.str());
-    }
+    if (_unlikely(ret == MAP_FAILED))
+	throw runtime_error(errstr("mmap"));
 
     assert(ret != nullptr);  // paranoid
     return ret;
@@ -73,10 +95,26 @@ void munmap_x(void *addr, ssize_t length)
     
     int err = munmap(addr, length);
 
-    if (err < 0) {
-	stringstream ss;
-	ss << "mmap() failed: " << strerror(errno);
-	throw runtime_error(ss.str());
+    if (_unlikely(err < 0))
+	throw runtime_error(errstr("munmap"));
+}
+
+
+void usleep_x(ssize_t usec)
+{
+    // According to usleep() manpage, sleeping for longer than this is an error!
+    static constexpr ssize_t max_usleep = 1000000;
+	
+    assert(usec >= 0);
+
+    while (usec > 0) {
+	ssize_t n = std::min(usec, max_usleep);
+	usec -= n;
+	
+	int err = usleep(n);
+
+	if (_unlikely(err < 0))
+	    throw runtime_error(errstr("usleep"));
     }
 }
 
@@ -119,7 +157,7 @@ void pin_thread_to_vcpus(const vector<int> &vcpu_list)
     CPU_ZERO(&cs);
 
     for (int vcpu: vcpu_list) {
-	if ((vcpu < 0) || (vcpu >= num_vcpus)) {
+	if (_unlikely((vcpu < 0) || (vcpu >= num_vcpus))) {
 	    stringstream ss;
 	    ss << "gputils: pin_thread_to_vcpus: vcpu=" << vcpu
 	       << " is out of range (num_vcpus=" << num_vcpus <<  to_string(num_vcpus) + ")";
@@ -131,12 +169,12 @@ void pin_thread_to_vcpus(const vector<int> &vcpu_list)
     // Note: pthread_self() always succeeds, no need to check its return value.
     int err = pthread_setaffinity_np(pthread_self(), sizeof(cs), &cs);
     
-    if (err) {
+    if (_unlikely(err != 0)) {
 	// If pthread_setaffinity_np() fails, then according to its manpage,
 	// it returns an error code, rather than setting 'errno'.
 
 	stringstream ss;
-	ss << "pthread_affinity_np() failed: " << strerror(err);
+	ss << "pthread_setaffinity_np() failed: " << strerror(err);
 	throw runtime_error(ss.str());
     }
 }

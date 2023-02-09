@@ -47,7 +47,7 @@ void check_aflags(int flags, const char *where)
 	throw runtime_error(string(where) + ": can specify at most one of " + aflag_str(af_mmap_flags));
 
     if (_unlikely((flags & af_mmap_flags) && !(flags & (af_uhost | af_rhost))))
-	throw runtime_error(string(where) + ": if af_mmap_* flag is specified, then af_*host flag must also be specified");
+	throw runtime_error(string(where) + ": if af_mmap_* flag is specified, then one of {af_uhost,af_rhost} must also be specified");
 }
 
 // Helper for aflag_str().

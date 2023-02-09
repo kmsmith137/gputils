@@ -10,16 +10,20 @@ namespace gputils {
 #endif
 
 
-// RAII wrapper for network socket
+// RAII wrapper for network socket.
+// See extended comment at end of file for "cheat sheet".
 struct Socket
 {
     int fd = -1;
     bool zerocopy = false;   // set by set_zerocopy(), supplies MSG_ZEROCOPY on future calls to send().
     bool connreset = false;  // set by send() if 
 
-    Socket() { }
+    // For TCP, use (domain,type) = (PF_INET,SOCK_STREAM). See "cheat sheet" below.
     Socket(int domain, int type, int protocol=0);
-
+    Socket() { }
+    
+    ~Socket() { this->close(); }
+    
     void connect(const std::string &ip_addr, short port);
     void bind(const std::string &ip_addr, short port);
     void listen(int backlog=128);
@@ -54,6 +58,27 @@ struct Socket
     Socket(Socket &&s);
     Socket &operator=(Socket &&s);
 };
+
+
+// Socketio "cheat sheet"
+//
+// Sending TCP data:
+//
+//   Socket s(PF_INET, SOCK_STREAM);
+//   s.connect("127.0.0.0", 1370);      // (dst IP address, port)
+//   s.get_zerocopy();                  // optional
+//   s.set_pacing_rate(bytes_per_sec);  // optional
+//   ssize_t nbytes_sent = s.send(buf, maxbytes);
+//
+// Receiving TCP data from single connection:
+//
+//   Socket s(PF_INET, SOCK_STREAM);
+//   s.set_reuseaddr();
+//   s.bind("127.0.0.0", 1370);   // (dst IP address, port)
+//   s.listen();
+//
+//   Socket sd = s.accept();
+//   ssize_t nbytes_received = s.read(buf, maxbytes);
 
 
 }  // namespace gputils
