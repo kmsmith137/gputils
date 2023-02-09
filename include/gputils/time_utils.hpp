@@ -34,6 +34,9 @@ inline double time_since(const struct timeval &t0)
 }
 
 
+// Note: gputils/system_utils.hpp defines
+//  extern void usleep_x(ssize_t usec);
+
 }  // namespace gputils
 
 #endif // _GPUTILS_TIME_UTILS_HPP
