@@ -14,7 +14,8 @@ namespace gputils {
 struct Socket
 {
     int fd = -1;
-    bool zerocopy = false;  // set by set_zerocopy(), supplies MSG_ZEROCOPY on future calls to send().
+    bool zerocopy = false;   // set by set_zerocopy(), supplies MSG_ZEROCOPY on future calls to send().
+    bool connreset = false;  // set by send() if 
 
     Socket() { }
     Socket(int domain, int type, int protocol=0);
@@ -26,6 +27,10 @@ struct Socket
 
     // Reminder: read() returns zero if connection ended, or if socket is nonblocking and no data is ready.
     ssize_t read(void *buf, ssize_t maxbytes);
+
+    // If receiver closes connection, then send() returns zero and sets Socket::connreset = true.
+    // If send() is called subsequently (with Socket::connreset == true), then an exception is thrown.
+    // This provides a mechanism for the sender to detect a closed connection.
     ssize_t send(const void *buf, ssize_t count, int flags=0);
 
     // FIXME in current API, sender's IP address is thrown away!

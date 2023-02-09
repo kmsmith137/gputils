@@ -146,18 +146,33 @@ ssize_t Socket::read(void *buf, ssize_t count)
 
 ssize_t Socket::send(const void *buf, ssize_t count, int flags)
 {
+    assert(count > 0);
+
+    if (_unlikely(connreset))
+	throw runtime_error("Socket::send() called after connection was reset");
+    
     if (zerocopy)
 	flags |= MSG_ZEROCOPY;
-
-    assert(count > 0);
+    
     ssize_t nbytes = ::send(this->fd, buf, count, flags);
 
-    if (_unlikely(nbytes < 0))
-	throw runtime_error(errstr(fd, "Socket::send"));
+    if (nbytes < 0) {
+	// If receiver closes connection, then send() returns zero and sets Socket::connreset = true.
+	// If send() is called subsequently (with Socket::connreset == true), then an exception is thrown.
+	// This provides a mechanism for the sender to detect a closed connection.
 
+	if ((errno == ECONNRESET) && !connreset) {
+	    connreset = true;
+	    errno = 0;
+	    return 0;
+	}
+
+	throw runtime_error(errstr(fd, "Socket::send"));
+    }
+    
     // Can send() return zero? If so, then this next line needs removal or rethinking.
     if (_unlikely(nbytes == 0))
-	throw runtime_error("Socket::send() returned zero?!");
+	throw runtime_error("send() returned zero?!");
 
     assert(nbytes <= count);
     return nbytes;
