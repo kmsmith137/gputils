@@ -65,6 +65,9 @@ std::runtime_error make_cuda_exception(cudaError_t xerr, const char *xstr, const
 
 
 // ------------------------------  RAII wrapper for cudaStream_t  ----------------------------------
+//
+// Note: you can also get RAII semantics for streams by working with shared_ptrs directly, e.g.
+//   shared_ptr<CUstream_st> stream = CudaStreamWrapper().p;
 
 
 struct CudaStreamWrapper {
@@ -83,23 +86,33 @@ struct CudaStreamWrapper {
     // conversion operator.
     
     operator cudaStream_t() { return p.get(); }
-
-    // Note: you can also get RAII semantics for streams by working with shared_ptrs directly, e.g.
-    //   shared_ptr<CUstream_st> stream = CudaStreamWrapper().p;
 };
 
 
 // ------------------------------  RAII wrapper for cudaEvent_t  -----------------------------------
+//
+// Note: you can also get RAII semantics for events by working with shared_ptrs directly, e.g.
+//   shared_ptr<CUevent_st> event = CudaEventWrapper(flags).p;
+//
+// Usage reminder:
+//   CUDA_CALL(cudaEventRecord(event, stream));   // submits event to stream
+//   CUDA_CALL(cudaEventSynchronize(event));      // waits for event
 
 
 struct CudaEventWrapper {
     // Reminder: cudaEvent_t is a typedef for (CUevent_st *)
     std::shared_ptr<CUevent_st> p;
 
-    CudaEventWrapper()
+    // Constructor flags:
+    //   cudaEventDefault = 0
+    //   cudaEventBlockingSync: callers of cudaEventSynchronize() will block instead of busy-waiting
+    //   cudaEventDisableTiming: event does not need to record timing data
+    //   cudaEventInterprocess: event may be used as an interprocess event by cudaIpcGetEventHandle()
+    
+    CudaEventWrapper(unsigned int flags = cudaEventDefault)
     {
 	cudaEvent_t e;
-	CUDA_CALL(cudaEventCreate(&e));
+	CUDA_CALL(cudaEventCreateWithFlags(&e, flags));
 	this->p = std::shared_ptr<CUevent_st> (e, cudaEventDestroy);
     }
 
@@ -108,9 +121,6 @@ struct CudaEventWrapper {
     // conversion operator.
     
     operator cudaEvent_t() { return p.get(); }
-    
-    // Note: you can also get RAII semantics for events by working with shared_ptrs directly, e.g.
-    //   shared_ptr<CUevent_st> event = CudaEventWrapper().p;
 };
 
 
