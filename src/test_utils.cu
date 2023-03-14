@@ -142,7 +142,7 @@ assert_arrays_equal(const Array<T> &arr1,
 	if (failed)
 	    nfail++;
 	
-	if ((nfail >= max_display) || !verbose)
+	if (nfail >= max_display)
 	    continue;
 	
 	cout << "   ";
