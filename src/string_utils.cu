@@ -26,10 +26,10 @@ static string _nbytes_to_str(double nbytes, double nunits, const char *units)
 
 string nbytes_to_str(ssize_t nbytes)
 {
-    constexpr double kilo = 1024.0;
-    constexpr double mega = 1024.0 * 1024.0;
-    constexpr double giga = 1024.0 * 1024.0 * 1024.0;
-    constexpr double tera = 1024.0 * 1024.0 * 1024.0 * 1024.0;
+    constexpr ssize_t kilo = 1024L;
+    constexpr ssize_t mega = 1024L * 1024L;
+    constexpr ssize_t giga = 1024L * 1024L * 1024L;
+    constexpr ssize_t tera = 1024L * 1024L * 1024L * 1024L;
 
     assert(nbytes >= 0);
 	
@@ -42,7 +42,7 @@ string nbytes_to_str(ssize_t nbytes)
     else if (nbytes >= kilo)
 	return _nbytes_to_str(nbytes, kilo, "KB");
     else 
-	return _nbytes_to_str(nbytes, 1.0, "bytes");
+	return _nbytes_to_str(nbytes, 1, "bytes");
 }
 
 
