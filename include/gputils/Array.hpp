@@ -61,8 +61,10 @@ struct Array {
     inline bool on_gpu() const { return !data || af_on_gpu(aflags); }
     inline bool on_host() const { return !data || af_on_host(aflags); }
 
-
-    inline void fill(const Array<T> &arr);
+    // Copies data from 'src' to 'this'. Arrays must have the same shape, but need not have the same strides.
+    // FIXME currently using cudaMemcpy() even if both arrays are on host -- is this slow?
+    inline void fill(const Array<T> &src);
+    
     inline Array<T> clone(int aflags) const;
     inline Array<T> clone() const;  // retains location_flags of source array
     
@@ -269,12 +271,12 @@ Array<T>::Array(std::initializer_list<ssize_t> shape_, std::initializer_list<ssi
 
 
 template<typename T>
-void Array<T>::fill(const Array<T> &arr)
+void Array<T>::fill(const Array<T> &src)
 {
-    assert(this->shape_equals(arr));
+    assert(this->shape_equals(src));
 
     if (size > 0)
-	fill_helper(data, arr.data, ndim, shape, strides, arr.strides, sizeof(T), false);
+	fill_helper(data, src.data, ndim, shape, strides, src.strides, sizeof(T), false);
 }
 
 
@@ -369,7 +371,7 @@ Array<T> Array<T>::slice(int axis, int ix) const
 	return ret;
     }
 
-    ret.data = data + (ix * strides[axis]);
+    ret.data = data + (ix * strides[axis]);    
     return ret;
 }
 

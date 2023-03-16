@@ -10,88 +10,6 @@ using namespace gputils;
 // -------------------------------------------------------------------------------------------------
 
 
-template<typename T>
-inline T prod(ssize_t n, const T *arr)
-{
-    T ret = 1;
-    for (ssize_t i = 0; i < n; i++)
-	ret *= arr[i];
-    return ret;
-}
-
-
-template<typename T>
-inline T prod(const vector<T> &v)
-{
-    return prod(v.size(), &v[0]);
-}
-
-
-static vector<ssize_t> make_random_shape()
-{
-    int size = 1;
-    int ndim = rand_int(1, ArrayMaxDim+1);
-    vector<ssize_t> shape(ndim, 1);
-    
-    while (size < 20000) {
-	if (rand_uniform() < 0.1)
-	    break;
-	
-	int i = rand_int(0, ndim);
-	int t = rand_int(2, 6);
-	
-	shape[i] *= t;
-	size *= t;
-    }
-    
-    return shape;
-}
-
-
-// FIXME I wrote a function make_random_strides() here, forgot it existed,
-// then wrote a similar function in test_utils.cu which I also named
-// make_random_strides().
-//
-// For now I've just renamed this function to xmake_random_strides(), but I'd
-// like to come back later and replace it with the "new" make_random_strides().
-
-static vector<ssize_t> xmake_random_strides(const vector<ssize_t> &shape)
-{
-    int ndim = shape.size();
-    vector<ssize_t> perm = rand_permutation(ndim);
-
-    vector<ssize_t> pshape(ndim);
-    for (int d = 0; d < ndim; d++)
-	pshape[d] = shape[perm[d]];
-    
-    vector<ssize_t> pstrides(ndim);
-    ssize_t min_stride = 1;
-
-    for (int d = ndim-1; d >= 0; d--) {
-	ssize_t max_stride = 1000000 / (min_stride * prod(d+1,&pshape[0]));
-	max_stride = min(max_stride, min_stride+5);
-	max_stride = max(max_stride, min_stride);
-
-	if (rand_uniform() < 0.5)
-	    pstrides[d] = min_stride;
-	else
-	    pstrides[d] = rand_int(min_stride, max_stride + 1);
-
-	// Update min_stride for next iteration of loop
-	min_stride = pstrides[d] * pshape[d];
-    }
-
-    vector<ssize_t> strides(ndim);
-    for (int d = 0; d < ndim; d++)
-	strides[perm[d]] = pstrides[d];
-    
-    return strides;
-}
-
-
-// -------------------------------------------------------------------------------------------------
-
-
 struct TestArrayAxis {
     ssize_t index = 0;
     ssize_t length = 0;
@@ -164,7 +82,7 @@ struct RandomlyStridedArray {
     }
 
     RandomlyStridedArray(const vector<ssize_t> &shape_, bool noisy_=false)
-	: RandomlyStridedArray(shape_, xmake_random_strides(shape_), noisy_)
+	: RandomlyStridedArray(shape_, make_random_strides(shape_), noisy_)
     { }
     
     RandomlyStridedArray(bool noisy_=false)
@@ -363,7 +281,7 @@ struct FillTestInstance {
     { }
     
     FillTestInstance(const vector<ssize_t> &shape_) :
-	FillTestInstance(shape_, xmake_random_strides(shape_), xmake_random_strides(shape_))
+	FillTestInstance(shape_, make_random_strides(shape_), make_random_strides(shape_))
     { }
 
     FillTestInstance() :
@@ -396,6 +314,76 @@ struct FillTestInstance {
     
 
 // -------------------------------------------------------------------------------------------------
+//
+// test_reshape_ref()
+//
+// FIXME it would be nice to test that reshape_ref() correctly throws an exception,
+// in cases where it should fail.
+
+
+template<typename T>
+static void test_reshape_ref(const vector<ssize_t> &dst_shape,
+			     const vector<ssize_t> &src_shape,
+			     const vector<ssize_t> &src_strides,
+			     bool noisy=false)
+{
+    if (noisy) {
+	cout << "test_reshape_ref: dst_shape=" << tuple_str(dst_shape)
+	     << ", src_shape=" << tuple_str(src_shape)
+	     << ", src_strides=" << tuple_str(src_strides)
+	     << endl;
+    }
+
+    // Note: src array is uninitialized, but that's okay since we compare array addresses (not contents) below.
+    Array<T> src(src_shape, src_strides, af_uhost);
+    Array<T> dst = src.reshape_ref(dst_shape);
+
+    auto src_ix = src.ix_start();
+    auto dst_ix = dst.ix_start();
+
+    for (;;) {
+	bool src_valid = src.ix_valid(src_ix);
+	bool dst_valid = dst.ix_valid(dst_ix);
+	assert(src_valid == dst_valid);
+
+	if (!src_valid)
+	    return;
+
+	// Compare array addresses (not contents).
+	const T *srcp = &src.at(src_ix);
+	const T *dstp = &dst.at(dst_ix);
+	assert(srcp == dstp);
+	
+	src.ix_next(src_ix);
+	dst.ix_next(dst_ix);
+    }
+}
+
+
+template<typename T>
+static void test_reshape_ref(bool noisy=false)
+{
+    vector<ssize_t> dshape, sshape, sstrides;
+    make_random_reshape_compatible_shapes(dshape, sshape, sstrides);
+    test_reshape_ref<T> (dshape, sshape, sstrides, noisy);
+}
+
+
+// -------------------------------------------------------------------------------------------------
+
+
+template<typename T>
+static void run_all_tests(bool noisy)
+{
+    RandomlyStridedArray<T> rs(noisy);	
+    rs.run_simple_tests();
+
+    FillTestInstance<T> ft;
+    ft.noisy = noisy;
+    ft.run();
+
+    test_reshape_ref<T> (noisy);
+}
 
 
 int main(int argc, char **argv)
@@ -407,19 +395,8 @@ int main(int argc, char **argv)
 	if (i % 100 == 0)
 	    cout << "test-array: iteration " << i << "/" << niter << endl;
 
-	RandomlyStridedArray<float> tf(noisy);
-	tf.run_simple_tests();
-	
-	RandomlyStridedArray<char> tc(noisy);
-	tc.run_simple_tests();
-
-	FillTestInstance<float> ff;
-	ff.noisy = noisy;
-	ff.run();
-	
-	FillTestInstance<char> fc;
-	fc.noisy = noisy;
-	fc.run();
+	run_all_tests<float> (noisy);
+	run_all_tests<char> (noisy);
     }
 
     cout << "test-array passed!" << endl;

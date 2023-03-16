@@ -1,12 +1,13 @@
-#include <cassert>
-#include <complex>
-#include <iostream>
-
-#include "../include/gputils/rand_utils.hpp"
 #include "../include/gputils/test_utils.hpp"
+#include "../include/gputils/rand_utils.hpp"
 
 // is_complex_v<T>, decomplexify_type<T>::type
 #include "../include/gputils/complex_type_traits.hpp"
+
+#include <cmath>
+#include <cassert>
+#include <complex>
+#include <iostream>
 
 using namespace std;
 
@@ -14,6 +15,41 @@ namespace gputils {
 #if 0
 }  // editor auto-indent
 #endif
+
+
+// -------------------------------------------------------------------------------------------------
+
+
+// Helper for make_random_shape() and make_random_reshape_compatible_shapes().
+inline ssize_t make_random_axis(ssize_t maxaxis, ssize_t &maxsize)
+{
+    assert(maxaxis > 0);
+    assert(maxsize > 0);
+    
+    ssize_t n = std::min(maxaxis, maxsize);
+    double t = rand_uniform(1.0e-6, log(n+1.0) - 1.0e-6);
+    ssize_t ret = ssize_t(exp(t));  // round down
+    maxsize = maxsize / ret;        // round down
+    return ret;
+}
+
+
+vector<ssize_t> make_random_shape(int ndim, ssize_t maxaxis, ssize_t maxsize)
+{
+    if (ndim == 0)
+	ndim = rand_int(1, ArrayMaxDim+1);
+    
+    assert(ndim > 0);
+    assert(ndim <= ArrayMaxDim);
+    assert(maxsize > 0);
+
+    vector<ssize_t> shape(ndim);
+    for (int d = 0; d < ndim; d++)
+	shape[d] = make_random_axis(maxaxis, maxsize);  // modifies 'maxsize'
+
+    randomly_permute(shape);
+    return shape;
+}
 
 
 // -------------------------------------------------------------------------------------------------
@@ -30,22 +66,27 @@ vector<ssize_t> make_random_strides(int ndim, const ssize_t *shape, int ncontig,
     vector<ssize_t> axis_ordering = rand_permutation(nd_strided);
     
     vector<ssize_t> strides(ndim);
-    ssize_t curr_stride = 1;
+    ssize_t min_stride = 1;
 
+    // These strides are contiguous
     for (int d = ndim-1; d >= nd_strided; d--) {
 	assert(shape[d] > 0);
-	strides[d] = curr_stride;
-	curr_stride += (shape[d]-1) * strides[d];
+	strides[d] = min_stride;
+	min_stride += (shape[d]-1) * strides[d];
     }
 
+    // These strides are not necessarily contiguous
     for (int i = 0; i < nd_strided; i++) {
 	int d = axis_ordering[i];
 	assert(shape[d] > 0);
 
-	ssize_t smin = (curr_stride + nalign - 1) / nalign;
-	ssize_t smax = std::max(smin+1, (2*curr_stride)/nalign);
-	strides[d] = nalign * rand_int(smin, smax+1);
-	curr_stride += (shape[d]-1) * strides[d];
+	// Assign stride (as multiple of nalign)
+	ssize_t smin = (min_stride + nalign - 1) / nalign;
+	ssize_t smax = std::max(smin+1, (2*min_stride)/nalign);
+	ssize_t s = (rand_uniform() < 0.33) ? smin : rand_int(smin,smax+1);
+	
+	strides[d] = s * nalign;
+	min_stride += (shape[d]-1) * strides[d];
     }
 
     return strides;
@@ -58,6 +99,112 @@ vector<ssize_t> make_random_strides(const vector<ssize_t> &shape, int ncontig, i
 }
 
 
+// -------------------------------------------------------------------------------------------------
+
+
+// Helper for make_random_reshape_compatible_shapes()
+struct RcBlock
+{
+    bool dflag;
+    vector<ssize_t> bshape;
+    vector<ssize_t> bstrides;  // contiguous
+    ssize_t bsize;
+};
+
+
+void make_random_reshape_compatible_shapes(vector<ssize_t> &dshape,
+					   vector<ssize_t> &sshape,
+					   vector<ssize_t> &sstrides,
+					   int maxaxis, ssize_t maxsize)
+{
+    assert(maxaxis > 0);
+    assert(maxsize > 0);
+    
+    vector<ssize_t> dstrides;
+    dshape.clear();
+    sshape.clear();
+    sstrides.clear();
+    
+    vector<RcBlock> blocks;
+    unsigned int ddims = 0;
+    unsigned int sdims = 0;
+
+    while (blocks.size() < ArrayMaxDim) {
+	RcBlock block;
+	block.dflag = rand_int(0,2);
+	
+	unsigned int &fdims = block.dflag ? ddims : sdims;   // "factored" dims
+	unsigned int &udims = block.dflag ? sdims : ddims;   // "unfactored" dims
+
+	if (udims == ArrayMaxDim)
+	    break;
+	
+	int nb_max = ArrayMaxDim - fdims;
+	int nb = 0;
+	
+	if ((nb_max > 0) && (rand_uniform() < 0.95)) {
+	    nb = rand_int(1, nb_max+1);
+	    block.bshape = make_random_shape(nb, maxaxis, maxsize);  // modifies 'maxsize'
+	}
+	
+	block.bstrides.resize(nb);
+	block.bsize = 1;
+
+	for (int i = nb-1; i >= 0; i--) {
+	    block.bstrides[i] = block.bsize;
+	    block.bsize *= block.bshape[i];
+	}
+
+	blocks.push_back(block);
+	fdims += nb;
+	udims += 1;
+
+	if (rand_uniform() < 0.2)
+	    break;
+    }
+
+    randomly_permute(blocks);
+
+    int nblocks = blocks.size();
+    vector<ssize_t> block_sizes(nblocks);
+    
+    for (int i = 0; i < nblocks; i++)
+	block_sizes[i] = blocks[i].bsize;
+    
+    vector<ssize_t> block_strides = make_random_strides(block_sizes);    
+
+    for (int i = 0; i < nblocks; i++) {
+	const RcBlock &block = blocks[i];
+	int block_stride = block_strides[i];
+	
+	vector<ssize_t> &fshape = block.dflag ? dshape : sshape;   // "factored" shape
+	vector<ssize_t> &ushape = block.dflag ? sshape : dshape;   // "unfactored" shape
+	vector<ssize_t> &fstrides = block.dflag ? dstrides : sstrides;   // "factored" strides
+	vector<ssize_t> &ustrides = block.dflag ? sstrides : dstrides;   // "unfactored" strides
+
+	ushape.push_back(block.bsize);
+	ustrides.push_back(block_stride);
+
+	for (unsigned int j = 0; j < block.bshape.size(); j++) {
+	    fshape.push_back(block.bshape[j]);
+	    fstrides.push_back(block.bstrides[j] * block_stride);
+	}
+    }
+
+    assert(dshape.size() == ddims);
+    assert(sshape.size() == sdims);
+    assert(dstrides.size() == ddims);
+    assert(sstrides.size() == sdims);
+
+    if (ddims == 0)
+	dshape.push_back(1);
+    if (sdims == 0)
+	sshape.push_back(1);
+    if (sdims == 0)
+	sstrides.push_back(1);
+}
+
+		 
 // -------------------------------------------------------------------------------------------------
 
 

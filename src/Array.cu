@@ -175,14 +175,14 @@ static int reshape_helper2(int src_ndim, const ssize_t *src_shape, const ssize_t
 	    dst_strides[id++] = 0;  // arbitrary
 
 	if ((is == src_ndim) && (id == dst_ndim))
-	    return ret;  // shapes are compatible
+	    return ret;  // shapes are compatible (return value may be 0 or 2)
 
 	if ((is == src_ndim) || (id == dst_ndim))
 	    return 1;    // should never happen, thanks to "if (src_size != dst_size) ..." above
 
 	ssize_t ss = src_shape[is];
 	ssize_t sd = dst_shape[id];
-	assert((ss > 0) && (sd > 0));  // should never fail
+	assert((ss >= 2) && (sd >= 2));  // should never fail
 
 	if ((ss % sd) == 0) {
 	    // Split source axis across one or more destination axes.
