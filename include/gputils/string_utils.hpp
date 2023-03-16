@@ -86,22 +86,23 @@ static T from_str(const std::string &s)
 
 
 // Returns a formatted tuple, e.g. "(1,2,3)"
+// To insert spaces (e.g. "(1, 2, 3)"), call with space=" ".
 template<typename T>
-static std::string tuple_str(int ndim, const T *tuple)
+static std::string tuple_str(int nelts, const T *tuple, const char *space="")
 {
-    if (ndim == 0)
+    if (nelts == 0)
 	return "()";
 	
     std::stringstream ss;
     ss << "(" << tuple[0];
 
-    if (ndim == 1) {
+    if (nelts == 1) {
 	ss << ",)";
 	return ss.str();
     }
 
-    for (int d = 1; d < ndim; d++)
-	ss << "," << tuple[d];
+    for (int d = 1; d < nelts; d++)
+	ss << "," << space << tuple[d];
 
     ss << ")";
     return ss.str();
@@ -109,9 +110,9 @@ static std::string tuple_str(int ndim, const T *tuple)
 
 
 template<typename T>
-static std::string tuple_str(const std::vector<T> &tuple)
+static std::string tuple_str(const std::vector<T> &tuple, const char *space="")
 {
-    return tuple_str(tuple.size(), &tuple[0]);
+    return tuple_str(tuple.size(), &tuple[0], space);
 }
 
 
