@@ -27,16 +27,18 @@ namespace gputils {
 //   // Callback function is called when kernel(s) finish, and queues new kernel(s).
 //   auto callback = [&](const CudaStreamPool &pool, cudaStream_t stream, int istream)
 //       {
-//           kernel <<<...., stream>>> ();   // queue kernel(s)
+//           kernel <<<...., stream>>> ();   // Queue kernel(s) -- be sure to use correct stream!
+//           CUDA_PEEK(name);                // Don't forget this!
 //	};
 //
 //   CudaStreamPool sp(callback, num_callbacks, nstreams, "kernel name");
 //
-//   // Example timing monitor: suppose each callback uses 200 GB of global memory BW
+//   // Example throughput monitor: suppose each callback uses 200 GB of global memory BW
 //   sp.monitor_throughput("Global memory BW (GB/s)", 200.0);
 //
-//   // Example timing monitor: suppose each callback processes 0.5 sec of real-time data
-//   sp.monitor_timing("Real-time fraction", 0.5);
+//   // Example timing monitors (second argument should have units of seconds)
+//   sp.monitor_time("Real-time fraction", real_time_seconds_of_data_per_kernel);
+//   sp.monitor_time("Clock cycles", instructions_per_kernel / get_sm_cycles_per_second());
 //
 //   sp.run();
 
