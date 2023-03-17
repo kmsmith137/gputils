@@ -125,6 +125,9 @@ void time_local_transpose_kernel(const char *name)
 
 int main(int argc, char **argv)
 {
+    // Implements command-line usage: program [device].
+    set_device_from_command_line(argc, argv);
+
     cout << "** FIXME: local_transpose_f16() timings are misleadingly optimistic! **" << endl;
     time_local_transpose_kernel<local_transpose_f16> ("local_transpose_f16");
     time_local_transpose_kernel<local_transpose_i16> ("local_transpose_i16");

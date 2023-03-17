@@ -176,6 +176,9 @@ public:
 // Misc
 
 
+// Implements command-line usage: program [device].
+extern void set_device_from_command_line(int argc, char **argv);
+
 extern double get_sm_cycles_per_second(int device=0);
 
 

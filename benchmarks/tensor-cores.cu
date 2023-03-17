@@ -428,6 +428,9 @@ static void time_mmas(int num_active_warps=32)
 
 int main(int argc, char **argv)
 {
+    // Implements command-line usage: program [device].
+    set_device_from_command_line(argc, argv);
+
     time_mmas(32);  // full occupancy (32 warps/SM)
     time_mmas(8);   // low occupancy (8 warps/SM)
     time_mmas(4);   // even lower occupancy (4 warps/SM)

@@ -210,6 +210,9 @@ static void test_sparse_mma()
 
 int main(int argc, char **argv)
 {
+    // Implements command-line usage: program [device].
+    set_device_from_command_line(argc, argv);
+
     for (int i = 0; i < 100; i++)
 	test_sparse_mma();
 

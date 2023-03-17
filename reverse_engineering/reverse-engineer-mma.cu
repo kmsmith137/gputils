@@ -787,6 +787,9 @@ static void reverse_engineer_float16_mma()
 
 int main(int argc, char **argv)
 {
+    // Implements command-line usage: program [device].
+    set_device_from_command_line(argc, argv);
+
     reverse_engineer_float16_mma <mma_f16_m16_n8_k8, 16, 8, 8> ();
     reverse_engineer_float16_mma <mma_f16_m16_n8_k16, 16, 8, 16> ();
 	

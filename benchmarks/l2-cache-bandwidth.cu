@@ -44,6 +44,9 @@ l2_bandwidth_kernel(int *dst, const int *src)
 
 int main(int argc, char **argv)
 {
+    // Implements command-line usage: program [device].
+    set_device_from_command_line(argc, argv);
+
     double gb = nblocks * num_inner_iterations * (l2_footprint_nbytes / double(1<<30));
 
     cout << "L2 cache bandwidth test\n"

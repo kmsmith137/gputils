@@ -112,6 +112,9 @@ static void time_kernel(const char *name, int flops_per_iteration)
 
 int main(int argc, char **argv)
 {
+    // Implements command-line usage: program [device].
+    set_device_from_command_line(argc, argv);
+
     time_kernel<float, fma_kernel<float>> ("fp32_fma", 4*2);
     time_kernel<__half2, fma_kernel<__half2>> ("fp16_fma", 4*4);
     time_kernel<__half2, hcmadd_kernel> ("hcmadd", 4*8);

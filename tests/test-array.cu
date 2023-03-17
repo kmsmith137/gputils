@@ -388,6 +388,9 @@ static void run_all_tests(bool noisy)
 
 int main(int argc, char **argv)
 {
+    // FIXME add this after testing arrays on GPU.
+    // set_device_from_command_line(argc, argv);
+
     bool noisy = false;
     int niter = 1000;
 

@@ -1,6 +1,7 @@
 #include "../include/gputils/Array.hpp"
 #include "../include/gputils/CudaStreamPool.hpp"
 #include "../include/gputils/cuda_utils.hpp"
+
 #include <iostream>
 
 using namespace std;
@@ -72,9 +73,12 @@ static void time_kernel(const char *name)
     sp.run();
 }
 
-
+    
 int main(int argc, char **argv)
 {
+    // Implements command-line usage: program [device].
+    set_device_from_command_line(argc, argv);
+    
     time_kernel<true,false> ("Read shared memory");
     time_kernel<false,true> ("Write shared memory");
     time_kernel<true,true> ("Read/write shared memory");

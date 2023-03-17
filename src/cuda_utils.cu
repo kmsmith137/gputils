@@ -5,6 +5,7 @@
 #include <iostream>
 
 #include "../include/gputils/cuda_utils.hpp"
+#include "../include/gputils/string_utils.hpp"  // from_str()
 
 using namespace std;
 
@@ -24,6 +25,45 @@ runtime_error make_cuda_exception(cudaError_t xerr, const char *xstr, const char
        << " [" << file << ":" << line << "]";
 
     return runtime_error(ss.str());
+}
+
+
+// Implements command-line usage: program [device].
+void set_device_from_command_line(int argc, char **argv)
+{
+    int ndev = -1;
+    CUDA_CALL(cudaGetDeviceCount(&ndev));
+
+    if (ndev <= 0) {
+	cerr << "No GPUs found! (cudaGetDeviceCount() returned zero";
+	exit(1);
+    }
+    else if (argc == 2) {
+	int dev = from_str<int> (argv[1]);
+	if ((dev <= 0) || (dev >= ndev)) {
+	    cerr << "Invalid GPU (=" << dev << ") was specified (expected 0 <= gpu < " << ndev << ")\n";
+	    exit(1);
+	}
+
+	CUDA_CALL(cudaSetDevice(dev));
+	// Fall through to announce device
+    }
+    else if (argc != 1) {
+	cerr << "Usage: " << argv[0] << " [device]" << endl;
+	exit(2);
+    }
+    else if (ndev != 1) {
+	cout << "Using default CUDA GPU (can override by specifying device on command line)\n";
+	// Fall through to announce device
+    }
+    
+    int dev = -1;
+    CUDA_CALL(cudaGetDevice(&dev));
+
+    cudaDeviceProp prop;
+    CUDA_CALL(cudaGetDeviceProperties(&prop, dev));
+
+    cout << "Using GPU=" << dev << ", name = " << prop.name << endl;
 }
 
 
