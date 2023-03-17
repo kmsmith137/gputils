@@ -14,7 +14,8 @@ static void show_device(int device)
     cudaError_t err = cudaGetDeviceProperties(&prop, device);
     assert(err == cudaSuccess);
 
-    cout << "    compute capability = " << prop.major << "." << prop.minor << "\n"
+    cout << "    name = " << prop.name << "\n"
+	 << "    compute capability = " << prop.major << "." << prop.minor << "\n"
 	 << "    multiProcessorCount = " << prop.multiProcessorCount << "\n"
 	 << "    clockRate = " << prop.clockRate << " kHZ  = " << (prop.clockRate / 1.0e6) << " GHz [deprecated]\n"
 	 << "    l2CacheSize = " << prop.l2CacheSize << " bytes = " << (prop.l2CacheSize / pow(2,20.)) << " MB\n"
