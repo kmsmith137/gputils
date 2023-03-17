@@ -31,45 +31,42 @@ HFILES = \
   include/gputils/time_utils.hpp
 
 OFILES = \
-  src/Array.o \
-  src/Barrier.o \
-  src/CpuThreadPool.o \
-  src/CudaStreamPool.o \
-  src/Epoll.o \
-  src/File.o \
-  src/Socket.o \
-  src/cuda_utils.o \
-  src/mem_utils.o \
-  src/rand_utils.o \
-  src/string_utils.o \
-  src/system_utils.o \
-  src/test_utils.o
+  src_lib/Array.o \
+  src_lib/Barrier.o \
+  src_lib/CpuThreadPool.o \
+  src_lib/CudaStreamPool.o \
+  src_lib/Epoll.o \
+  src_lib/File.o \
+  src_lib/Socket.o \
+  src_lib/cuda_utils.o \
+  src_lib/mem_utils.o \
+  src_lib/rand_utils.o \
+  src_lib/string_utils.o \
+  src_lib/system_utils.o \
+  src_lib/test_utils.o
 
 LIBFILES = \
   lib/libgputils.a \
   lib/libgputils.so
 
 XFILES = \
-  benchmarks/fma \
-  benchmarks/l2-cache-bandwidth \
-  benchmarks/local-transpose \
-  benchmarks/shared-memory \
-  benchmarks/tensor-cores \
-  benchmarks/warp-shuffle \
-  loose_ends/bit-mapping \
-  loose_ends/scratch \
-  reverse_engineering/reverse-engineer-mma \
-  tests/test-array \
-  tests/test-sparse-mma \
-  utils/show-devices
+  bin/time-fma \
+  bin/time-l2-cache \
+  bin/time-local-transpose \
+  bin/time-shared-memory \
+  bin/time-tensor-cores \
+  bin/time-warp-shuffle \
+  bin/scratch \
+  bin/reverse-engineer-mma \
+  bin/test-array \
+  bin/test-sparse-mma \
+  bin/show-devices
 
 SRCDIRS = \
   include \
   include/gputils \
-  benchmarks \
-  reverse_engineering \
-  src \
-  tests
+  src_bin \
+  src_lib
 
 all: $(LIBFILES) $(XFILES)
 
@@ -85,6 +82,9 @@ clean:
 %.o: %.cu $(HFILES)
 	$(NVCC) -c -o $@ $<
 
+bin/%: src_bin/%.o lib/libgputils.a
+	mkdir -p bin && $(NVCC) -o $@ $^
+
 lib/libgputils.so: $(OFILES)
 	@mkdir -p lib
 	rm -f $@
@@ -98,42 +98,6 @@ lib/libgputils.a: $(OFILES)
 # Special rule for procedurally generating 'device_mma.hpp'
 include/gputils/device_mma.hpp: generate_device_mma_hpp.py
 	python3 $^ >$@
-
-benchmarks/fma: benchmarks/fma.o lib/libgputils.a
-	$(NVCC) -o $@ $^
-
-benchmarks/l2-cache-bandwidth: benchmarks/l2-cache-bandwidth.o lib/libgputils.a
-	$(NVCC) -o $@ $^
-
-benchmarks/local-transpose: benchmarks/local-transpose.o lib/libgputils.a
-	$(NVCC) -o $@ $^
-
-benchmarks/shared-memory: benchmarks/shared-memory.o lib/libgputils.a
-	$(NVCC) -o $@ $^
-
-benchmarks/tensor-cores: benchmarks/tensor-cores.o lib/libgputils.a
-	$(NVCC) -o $@ $^
-
-benchmarks/warp-shuffle: benchmarks/warp-shuffle.o lib/libgputils.a
-	$(NVCC) -o $@ $^
-
-loose_ends/bit-mapping: loose_ends/bit-mapping.o lib/libgputils.a
-	$(NVCC) -o $@ $^
-
-loose_ends/scratch: loose_ends/scratch.o lib/libgputils.a
-	$(NVCC) -o $@ $^
-
-reverse_engineering/reverse-engineer-mma: reverse_engineering/reverse-engineer-mma.o lib/libgputils.a
-	$(NVCC) -o $@ $^
-
-tests/test-array: tests/test-array.o lib/libgputils.a
-	$(NVCC) -o $@ $^
-
-tests/test-sparse-mma: tests/test-sparse-mma.o lib/libgputils.a
-	$(NVCC) -o $@ $^
-
-utils/show-devices: utils/show-devices.o
-	$(NVCC) -o $@ $^
 
 INSTALL_DIR ?= /usr/local
 
