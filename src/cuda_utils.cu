@@ -40,7 +40,7 @@ void set_device_from_command_line(int argc, char **argv)
     }
     else if (argc == 2) {
 	int dev = from_str<int> (argv[1]);
-	if ((dev <= 0) || (dev >= ndev)) {
+	if ((dev < 0) || (dev >= ndev)) {
 	    cerr << "Invalid GPU (=" << dev << ") was specified (expected 0 <= gpu < " << ndev << ")\n";
 	    exit(1);
 	}
