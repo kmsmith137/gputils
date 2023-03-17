@@ -171,6 +171,14 @@ public:
 };
 
 
+// -------------------------------------------------------------------------------------------------
+//
+// Misc
+
+
+extern double get_sm_cycles_per_second(int device=0);
+
+
 } // namespace gputils
 
 

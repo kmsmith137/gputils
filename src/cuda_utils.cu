@@ -27,4 +27,15 @@ runtime_error make_cuda_exception(cudaError_t xerr, const char *xstr, const char
 }
 
 
+double get_sm_cycles_per_second(int device)
+{
+    // https://docs.nvidia.com/cuda/cuda-runtime-api/structcudaDeviceProp.html
+    cudaDeviceProp prop;
+    CUDA_CALL(cudaGetDeviceProperties(&prop, device));
+
+    // prop.clockRate is in kHz
+    return 1.0e3 * double(prop.multiProcessorCount) * double(prop.clockRate);
+}
+
+
 } // namespace gputils
