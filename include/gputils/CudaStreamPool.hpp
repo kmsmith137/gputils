@@ -81,6 +81,7 @@ protected:
     const int max_callbacks;
     const std::string name;
     std::vector<CudaStreamWrapper> streams;  // length nstreams
+    int cuda_device = -1;
     
     std::condition_variable cv;
     mutable std::mutex lock;

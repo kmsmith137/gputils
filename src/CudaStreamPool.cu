@@ -19,6 +19,9 @@ CudaStreamPool::CudaStreamPool(const callback_t &callback_, int max_callbacks_, 
     assert(max_callbacks >= 0);
     assert(nstreams > 0);
 
+    CUDA_CALL(cudaGetDevice(&this->cuda_device));
+    assert(cuda_device >= 0);
+    
     // Streams will be created by cudaStreamWrapper constructor.
     this->streams.resize(nstreams);
     this->sstate.resize(nstreams);
@@ -110,6 +113,9 @@ void CudaStreamPool::manager_thread_body(CudaStreamPool *pool)
     auto start_time = get_time();
     unique_lock ulock(pool->lock);
 
+    assert(pool->cuda_device >= 0);
+    CUDA_CALL(cudaSetDevice(pool->cuda_device));
+    
     for (;;) {
 	bool dropped_lock = false;
 
