@@ -53,6 +53,7 @@ XFILES = \
   benchmarks/fma \
   benchmarks/l2-cache-bandwidth \
   benchmarks/local-transpose \
+  benchmarks/shared-memory \
   benchmarks/tensor-cores \
   benchmarks/warp-shuffle \
   loose_ends/bit-mapping \
@@ -105,6 +106,9 @@ benchmarks/l2-cache-bandwidth: benchmarks/l2-cache-bandwidth.o lib/libgputils.a
 	$(NVCC) -o $@ $^
 
 benchmarks/local-transpose: benchmarks/local-transpose.o lib/libgputils.a
+	$(NVCC) -o $@ $^
+
+benchmarks/shared-memory: benchmarks/shared-memory.o lib/libgputils.a
 	$(NVCC) -o $@ $^
 
 benchmarks/tensor-cores: benchmarks/tensor-cores.o lib/libgputils.a
