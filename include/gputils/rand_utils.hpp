@@ -140,6 +140,22 @@ inline std::vector<ssize_t> rand_permutation(ssize_t nelts, std::mt19937 &rng = 
 }
 
 
+template<typename T>
+inline T rand_element(const std::vector<T> &v, std::mt19937 &rng = default_rng)
+{
+    assert(v.size() > 0);
+    long ix = rand_int(0, v.size(), rng);
+    return v[ix];
+}
+
+template<typename T>
+inline T rand_element(const std::initializer_list<T> v, std::mt19937 &rng = default_rng)
+{
+    assert(v.size() > 0);
+    int ix = rand_int(0, v.size(), rng);
+    return std::data(v)[ix];
+}
+
 
 } // namespace gputils
 
