@@ -266,7 +266,7 @@ void Socket::set_pacing_rate(double bytes_per_sec)
 void Socket::set_zerocopy()
 {
       int on = 1;
-      int err = setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on));
+      int err = setsockopt(fd, SOL_SOCKET, SO_ZEROCOPY, &on, sizeof(on));
 
       if (err < 0)
 	  throw runtime_error(errstr(fd, "Socket::set_zerocopy"));
