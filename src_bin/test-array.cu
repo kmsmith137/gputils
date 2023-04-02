@@ -374,13 +374,21 @@ static void test_reshape_ref(bool noisy=false)
 // test_convert_dtype()
 
 
-inline float convert_to_float(float x)  { return x; }
-inline float convert_to_float(__half x) { return __half2float(x); }
+inline double convert_to_double(double x) { return x; }
+inline double convert_to_double(float x)  { return x; }
+inline double convert_to_double(__half x) { return __half2float(x); }  // CUDA doesn't define __half2double()
+
+template<typename T> struct dtype_epsilon { };
+template<> struct dtype_epsilon<double> { static constexpr double value = 1.0e-15; };
+template<> struct dtype_epsilon<float>  { static constexpr double value = 1.0e-6; };
+template<> struct dtype_epsilon<__half> { static constexpr double value = 0.005; };
 
 
 template<typename Tdst, typename Tsrc>
 static void test_convert_dtype(const vector<ssize_t> &shape, const vector<ssize_t> &strides, bool noisy=false)
 {
+    double epsilon = std::max(dtype_epsilon<Tdst>::value, dtype_epsilon<Tsrc>::value);
+    
     if (noisy) {
 	cout << "test_convert_dtype(Tdst=" << type_name<Tdst>()
 	     << ", Tsrc=" << type_name<Tsrc>()
@@ -395,12 +403,12 @@ static void test_convert_dtype(const vector<ssize_t> &shape, const vector<ssize_
     assert(dst.shape_equals(src));
 
     for (auto ix = src.ix_start(); src.ix_valid(ix); src.ix_next(ix)) {
-	float fsrc = convert_to_float(src.at(ix));
-	float fdst = convert_to_float(dst.at(ix));
+	double fsrc = convert_to_double(src.at(ix));
+	double fdst = convert_to_double(dst.at(ix));
 	
 	// FIXME currently assuming threshold appropriate for float16,
 	// since the only implemented conversions are float32 <-> float16.
-	assert(abs(fsrc-fdst) < 0.005);
+	assert(abs(fsrc-fdst) < epsilon);
     }
 }
 
@@ -453,8 +461,12 @@ int main(int argc, char **argv)
 	run_all_tests<char> (noisy);
 
 	// test_convert_dtype() is not included in run_all_tests().
-	test_convert_dtype<float, __half> (noisy);
 	test_convert_dtype<__half, float> (noisy);
+	test_convert_dtype<__half, double> (noisy);
+	test_convert_dtype<float, __half> (noisy);
+	test_convert_dtype<float, double> (noisy);
+	test_convert_dtype<double, __half> (noisy);
+	test_convert_dtype<double, float> (noisy);
     }
 
     cout << "test-array passed!" << endl;

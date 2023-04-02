@@ -106,10 +106,11 @@ struct Array {
     inline Array<T> reshape_ref(std::initializer_list<ssize_t> shape) const;
 
     // Converts (array of type T) -> (array of type T2).
-    // FIXME for now, source and destination arrays must be on host.
+    // FIXME for now, both arrays must be on host.
     //
-    // FIXME mostly a placeholder to be expanded later -- only conversions current 
-    // implemented are (float <-> __half).
+    // Element conversion is done using C++ type conversion, except in cases
+    // (__half) <-> (float or double), when we call cuda intrinsics such as
+    // __float2half().
     
     template<typename Tdst> inline Array<Tdst> convert_dtype() const;
     template<typename Tdst> inline Array<Tdst> convert_dtype(int aflags) const;
@@ -529,27 +530,37 @@ template<typename T> void Array<T>::check_invariants() const
 // Array<T>::convert_dtype()
 
 
+// Default dtype converter (just use C++ type conversion)
 template<typename Tdst, typename Tsrc>
 struct DtypeConverter
 {
-    static inline Tdst convert(Tsrc x)
-    {
-	static_assert(sizeof(x) == 100, "Array::convert_dtype() is not implemented for this (Tsrc,Tdst) pair");
-    }
+    static inline Tdst convert(Tsrc x) { return x; }
 };
 
-
-template<>
-struct DtypeConverter<__half, float>
+// Dtype conversion float -> __half
+template<> struct DtypeConverter<__half, float>
 {
     static inline __half convert(float x) { return __float2half(x); }
 };
 
+// Dtype conversion double -> __half
+template<> struct DtypeConverter<__half, double>
+{
+    static inline __half convert(double x) { return __double2half(x); }
+};
 
-template<>
-struct DtypeConverter<float, __half>
+
+// Dtype conversion __half -> float
+template<> struct DtypeConverter<float, __half>
 {
     static inline float convert(__half x) { return __half2float(x); }
+};
+
+// Dtype conversion __half -> double
+template<> struct DtypeConverter<double, __half>
+{
+    // CUDA doesn't define __half2double()
+    static inline double convert(__half x) { return __half2float(x); }
 };
 
 
