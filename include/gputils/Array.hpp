@@ -5,7 +5,7 @@
 #include <vector>
 #include <stdexcept>
 #include "mem_utils.hpp"  // af_alloc() and flags
-
+#include <cuda_fp16.h>    // __half
 
 namespace gputils {
 #if 0
@@ -104,8 +104,17 @@ struct Array {
     inline Array<T> reshape_ref(int ndim, const ssize_t *shape) const;
     inline Array<T> reshape_ref(const std::vector<ssize_t> &shape) const;
     inline Array<T> reshape_ref(std::initializer_list<ssize_t> shape) const;
-    
 
+    // Converts (array of type T) -> (array of type T2).
+    // FIXME for now, source and destination arrays must be on host.
+    //
+    // FIXME mostly a placeholder to be expanded later -- only conversions current 
+    // implemented are (float <-> __half).
+    
+    template<typename Tdst> inline Array<Tdst> convert_dtype() const;
+    template<typename Tdst> inline Array<Tdst> convert_dtype(int aflags) const;
+
+    
     // For looping over array indices (not high-performance):
     //
     //    Array<T> arr;
@@ -513,8 +522,90 @@ template<typename T> void Array<T>::check_invariants() const
 {
     check_array_invariants(data, ndim, shape, size, strides, aflags);
 }
-    
 
+
+// -------------------------------------------------------------------------------------------------
+//
+// Array<T>::convert_dtype()
+
+
+template<typename Tdst, typename Tsrc>
+struct DtypeConverter
+{
+    static inline Tdst convert(Tsrc x)
+    {
+	static_assert(sizeof(x) == 100, "Array::convert_dtype() is not implemented for this (Tsrc,Tdst) pair");
+    }
+};
+
+
+template<>
+struct DtypeConverter<__half, float>
+{
+    static inline __half convert(float x) { return __float2half(x); }
+};
+
+
+template<>
+struct DtypeConverter<float, __half>
+{
+    static inline float convert(__half x) { return __half2float(x); }
+};
+
+
+template<typename Tdst, typename Tsrc>
+inline void convert_dtype_helper(Tdst *dst,
+				 const Tsrc *src,
+				 int nouter_dims,
+				 const ssize_t *outer_shape,			    
+				 const ssize_t *outer_dst_strides,
+				 const ssize_t *outer_src_strides,
+				 ssize_t nelts_contig)
+{
+    if (nouter_dims > 0) {
+	for (int i = 0; i < outer_shape[0]; i++) {
+	    convert_dtype_helper(dst + i * outer_dst_strides[0],
+				 src + i * outer_src_strides[0],
+				 nouter_dims - 1,
+				 outer_shape + 1,
+				 outer_dst_strides + 1,
+				 outer_src_strides + 1,
+				 nelts_contig);
+	}
+    }
+    else {
+	for (int i = 0; i < nelts_contig; i++)
+	    dst[i] = DtypeConverter<Tdst,Tsrc>::convert(src[i]);
+    }
+}
+
+
+template<typename Tsrc> template<typename Tdst>
+inline Array<Tdst> Array<Tsrc>::convert_dtype(int aflags) const
+{
+    assert(on_host());           // src array must be on host
+    assert(af_on_host(aflags));  // dst array must be on host
+    Array<Tdst> dst(ndim, shape, aflags);
+
+    int ncontig = get_ncontig();
+    int nouter = ndim - ncontig;
+
+    ssize_t nelts_contig = 1;
+    for (int i = nouter; i < ndim; i++)
+	nelts_contig *= shape[i];
+
+    convert_dtype_helper(dst.data, this->data, nouter, shape, dst.strides, strides, nelts_contig);
+    return dst;
+}
+
+
+template<typename Tsrc> template<typename Tdst>
+inline Array<Tdst> Array<Tsrc>::convert_dtype() const
+{
+    return this->convert_dtype<Tdst> (aflags & af_location_flags);
+}
+
+    
 } // namespace gputils
 
 #endif // _GPUTILS_ARRAY_HPP

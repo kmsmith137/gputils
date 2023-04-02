@@ -370,11 +370,62 @@ static void test_reshape_ref(bool noisy=false)
 
 
 // -------------------------------------------------------------------------------------------------
+//
+// test_convert_dtype()
+
+
+inline float convert_to_float(float x)  { return x; }
+inline float convert_to_float(__half x) { return __half2float(x); }
+
+
+template<typename Tdst, typename Tsrc>
+static void test_convert_dtype(const vector<ssize_t> &shape, const vector<ssize_t> &strides, bool noisy=false)
+{
+    if (noisy) {
+	cout << "test_convert_dtype(Tdst=" << type_name<Tdst>()
+	     << ", Tsrc=" << type_name<Tsrc>()
+	     << ", shape=" << tuple_str(shape)
+	     << ", strides=" << tuple_str(strides)
+	     << ")" << endl;
+    }
+
+    Array<Tsrc> src(shape, strides, af_uhost | af_random);
+    Array<Tdst> dst = src.template convert_dtype<Tdst> ();
+
+    assert(dst.shape_equals(src));
+
+    for (auto ix = src.ix_start(); src.ix_valid(ix); src.ix_next(ix)) {
+	float fsrc = convert_to_float(src.at(ix));
+	float fdst = convert_to_float(dst.at(ix));
+	
+	// FIXME currently assuming threshold appropriate for float16,
+	// since the only implemented conversions are float32 <-> float16.
+	assert(abs(fsrc-fdst) < 0.005);
+    }
+}
+
+
+template<typename Tdst, typename Tsrc>
+static void test_convert_dtype(bool noisy=false)
+{
+    vector<ssize_t> shape = make_random_shape();
+
+    int ndim = shape.size();
+    int ncontig = rand_int(0, ndim+1);
+    vector<ssize_t> strides = make_random_strides(shape, ncontig);
+
+    test_convert_dtype<Tdst,Tsrc> (shape, strides, noisy);
+}
+
+
+// -------------------------------------------------------------------------------------------------
 
 
 template<typename T>
 static void run_all_tests(bool noisy)
 {
+    // Note: test_convert_dtype() is not included in run_all_tests().
+    
     RandomlyStridedArray<T> rs(noisy);	
     rs.run_simple_tests();
 
@@ -400,6 +451,10 @@ int main(int argc, char **argv)
 
 	run_all_tests<float> (noisy);
 	run_all_tests<char> (noisy);
+
+	// test_convert_dtype() is not included in run_all_tests().
+	test_convert_dtype<float, __half> (noisy);
+	test_convert_dtype<__half, float> (noisy);
     }
 
     cout << "test-array passed!" << endl;
