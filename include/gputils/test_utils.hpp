@@ -19,6 +19,7 @@ namespace gputils {
 
 // Very boneheaded function which prints an array.
 // Currently one line per array element -- could be improved!
+// Instantiated for T = __half, float, double, (u)int, (u)long, (u)short, (u)char, complex<float>, complex<double>.
 
 template<typename T>
 extern void
@@ -33,6 +34,11 @@ print_array(const Array<T> &arr,
 // Returns the max difference between arrays. The return value is:
 //    T    if instantiated for a non-complex type T
 //    R    if instantiated for T= std::complex<R>
+//
+// FIXME to do: implement assert_arrays_equal<__half> ().
+// Temporary workaround:
+//    (1) convert both arrays to float with Array<__half>:convert_dtype<float>()
+//    (2) call assert_arrays_equal(..., epsabs=0.01, epsrel=0.005);
 
 template<typename T>
 extern typename gputils::decomplexify_type<T>::type

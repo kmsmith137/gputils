@@ -208,6 +208,13 @@ void make_random_reshape_compatible_shapes(vector<ssize_t> &dshape,
 // -------------------------------------------------------------------------------------------------
 
 
+inline ostream &operator<<(ostream &os, __half x)
+{
+    os << __half2float(x);
+    return os;
+}
+
+
 template<typename T>
 void print_array(const Array<T> &arr, const vector<string> &axis_names, std::ostream &os)
 {
@@ -237,7 +244,7 @@ void print_array(const Array<T> &arr, const vector<string> &axis_names, std::ost
 
 // -------------------------------------------------------------------------------------------------
 
-
+    
 template<typename T>
 typename gputils::decomplexify_type<T>::type
 assert_arrays_equal(const Array<T> &arr1,
@@ -317,12 +324,13 @@ assert_arrays_equal(const Array<T> &arr1,
 }
 
 
-#define INSTANTIATE_TEMPLATES(T)	    \
+#define INSTANTIATE_PRINT_ARRAY(T)	    \
     template void print_array(              \
 	const Array<T> &arr,                \
 	const vector<string> &axis_names,   \
-	ostream &os);                       \
-                                            \
+	ostream &os)
+
+#define INSTANTIATE_ASSERT_ARRAYS_EQUAL(T)  \
     template				    \
     gputils::decomplexify_type<T>::type	    \
     assert_arrays_equal(		    \
@@ -334,8 +342,11 @@ assert_arrays_equal(const Array<T> &arr1,
 	float epsabs,                       \
 	float epsrel,                       \
 	ssize_t max_display, 	            \
-	bool verbose);
+	bool verbose)
 
+#define INSTANTIATE_TEMPLATES(T) \
+    INSTANTIATE_PRINT_ARRAY(T); \
+    INSTANTIATE_ASSERT_ARRAYS_EQUAL(T)
 
 
 INSTANTIATE_TEMPLATES(float);
@@ -350,6 +361,10 @@ INSTANTIATE_TEMPLATES(unsigned short);
 INSTANTIATE_TEMPLATES(unsigned char);
 INSTANTIATE_TEMPLATES(complex<float>);
 INSTANTIATE_TEMPLATES(complex<double>);
+
+// FIXME implement assert_arrays_equal<__half>().
+// In the meantime, I'm instantiating print_array<__half>(), but not assert_arrays_equal<__half>().
+INSTANTIATE_PRINT_ARRAY(__half);
 
 
 }  // namespace gputils
