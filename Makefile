@@ -24,6 +24,7 @@ HFILES = \
   include/gputils/cuda_utils.hpp \
   include/gputils/device_mma.hpp \
   include/gputils/mem_utils.hpp \
+  include/gputils/memcpy_kernels.hpp \
   include/gputils/rand_utils.hpp \
   include/gputils/string_utils.hpp \
   include/gputils/system_utils.hpp \
@@ -40,6 +41,7 @@ OFILES = \
   src_lib/Socket.o \
   src_lib/cuda_utils.o \
   src_lib/mem_utils.o \
+  src_lib/memcpy_kernels.o \
   src_lib/rand_utils.o \
   src_lib/string_utils.o \
   src_lib/system_utils.o \
@@ -53,12 +55,14 @@ XFILES = \
   bin/time-fma \
   bin/time-l2-cache \
   bin/time-local-transpose \
+  bin/time-memcpy-kernels \
   bin/time-shared-memory \
   bin/time-tensor-cores \
   bin/time-warp-shuffle \
   bin/scratch \
   bin/reverse-engineer-mma \
   bin/test-array \
+  bin/test-memcpy-kernels \
   bin/test-sparse-mma \
   bin/show-devices
 

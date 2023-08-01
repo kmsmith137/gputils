@@ -41,6 +41,9 @@
 // af_alloc(), af_copy(), af_clone()
 #include "gputils/mem_utils.hpp"
 
+// Drop-in-replacement for 1d and 2d GPU-to-GPU cudaMemcpyAsync(), but uses SMs instead of a copy engine.
+#include "gputils/memcpy_kernels.hpp"
+
 // rand_int(), rand_uniform(), randomize()
 #include "gputils/rand_utils.hpp"
 
