@@ -88,7 +88,7 @@ int main(int argc, char **argv)
 	test_memcpy_kernel(nb);
 
     for (long nb_max = 128*1024; nb_max <= 4L * 1024L * 1024L * 1024L; nb_max *= 2) {
-	cout << "\nnb_max = " nb_max << " (" << nbytes_to_str(nb_max) << ")" << endl;
+	cout << "\nnb_max = " << nb_max << " (" << nbytes_to_str(nb_max) << ")" << endl;
 	
 	test_random_memcpy_kernel(nb_max);
 	for (int i = 0; i < 4; i++)
