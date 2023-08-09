@@ -16,7 +16,6 @@ HFILES = \
   include/gputils/CpuThreadPool.hpp \
   include/gputils/CudaStreamPool.hpp \
   include/gputils/Epoll.hpp \
-  include/gputils/File.hpp \
   include/gputils/Socket.hpp \
   include/gputils/ThreadSafeRingBuffer.hpp \
   include/gputils/complex_type_traits.hpp \
@@ -37,7 +36,6 @@ OFILES = \
   src_lib/CpuThreadPool.o \
   src_lib/CudaStreamPool.o \
   src_lib/Epoll.o \
-  src_lib/File.o \
   src_lib/Socket.o \
   src_lib/cuda_utils.o \
   src_lib/mem_utils.o \
