@@ -15,8 +15,6 @@ HFILES = \
   include/gputils/Barrier.hpp \
   include/gputils/CpuThreadPool.hpp \
   include/gputils/CudaStreamPool.hpp \
-  include/gputils/Epoll.hpp \
-  include/gputils/Socket.hpp \
   include/gputils/ThreadSafeRingBuffer.hpp \
   include/gputils/complex_type_traits.hpp \
   include/gputils/constexpr_functions.hpp \
@@ -35,8 +33,6 @@ OFILES = \
   src_lib/Barrier.o \
   src_lib/CpuThreadPool.o \
   src_lib/CudaStreamPool.o \
-  src_lib/Epoll.o \
-  src_lib/Socket.o \
   src_lib/cuda_utils.o \
   src_lib/mem_utils.o \
   src_lib/memcpy_kernels.o \

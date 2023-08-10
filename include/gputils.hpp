@@ -14,12 +14,6 @@
 // CpuThreadPool: run multiple CPU threads with dynamic load-balancing, intended for timing.
 #include "gputils/CpuThreadPool.hpp"
 
-// Epoll: RAII wrapper for epoll file descriptor.
-#include "gputils/Epoll.hpp"
-
-// Socket: RAII wrapper for network socket.
-#include "gputils/Socket.hpp"
-
 // ThreadSafeRingBuffer<T>: pass data between producer/consumer threads.
 #include "gputils/ThreadSafeRingBuffer.hpp"
 
