@@ -17,9 +17,6 @@
 // Epoll: RAII wrapper for epoll file descriptor.
 #include "gputils/Epoll.hpp"
 
-// File: RAII wrapper for unix file descriptor.
-#include "gputils/File.hpp"
-
 // Socket: RAII wrapper for network socket.
 #include "gputils/Socket.hpp"
 
