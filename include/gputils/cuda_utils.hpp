@@ -81,6 +81,17 @@ struct CudaStreamWrapper {
 	this->p = std::shared_ptr<CUstream_st> (s, cudaStreamDestroy);
     }
 
+    // Create cudaStream with priority. CUDA priorities follow a convention where lower numbers represent
+    // higher priorities. '0' represents default priority. The range of meaningful numerical priorities can
+    // be queried using cudaDeviceGetStreamPriorityRange(). On an A40, the allowed range is [-5,0].
+    
+    CudaStreamWrapper(int priority)
+    {
+	cudaStream_t s;
+	CUDA_CALL(cudaStreamCreateWithPriority(&s, cudaStreamDefault, priority));
+	this->p = std::shared_ptr<CUstream_st> (s, cudaStreamDestroy);
+    }
+
     // A CudaStreamWrapper can be used anywhere a cudaStream_t can be used
     // (e.g. in a kernel launch, or elsewhere in the CUDA API), via this
     // conversion operator.
