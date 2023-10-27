@@ -167,9 +167,9 @@ extern std::string shape_str(int ndim, const ssize_t *shape);
 extern void reshape_ref_helper(int src_ndim, const ssize_t *src_shape, const ssize_t *src_strides,
 			       int dst_ndim, const ssize_t *dst_shape, ssize_t *dst_strides);
 
-extern void fill_helper(void *dst, const void *src, int nd,
-			const ssize_t *shape, const ssize_t *dstride,
-			const ssize_t *sstride, ssize_t itemsize, bool noisy=false);
+extern void fill_helper(void *dst, int dst_ndim, const ssize_t *dst_shape, const ssize_t *dst_strides,
+			const void *src, int src_ndim, const ssize_t *src_shape, const ssize_t *src_strides,
+			ssize_t itemsize, bool noisy=false);
 
 
 // -------------------------------------------------------------------------------------------------
@@ -283,10 +283,9 @@ Array<T>::Array(std::initializer_list<ssize_t> shape_, std::initializer_list<ssi
 template<typename T>
 void Array<T>::fill(const Array<T> &src)
 {
-    assert(this->shape_equals(src));
-
-    if (size > 0)
-	fill_helper(data, src.data, ndim, shape, strides, src.strides, sizeof(T), false);
+    fill_helper(data, ndim, shape, strides,
+		src.data, src.ndim, src.shape, src.strides,
+		sizeof(T), false);   // noisy=false
 }
 
 

@@ -319,11 +319,31 @@ static void fill_helper2(char *dst, const char *src, int ndim, const fill_axis *
 
 
 
-void fill_helper(void *dst, const void *src, int ndim,
-		 const ssize_t *shape, const ssize_t *dstride,
-		 const ssize_t *sstride, ssize_t itemsize, bool noisy)
+void fill_helper(void *dst, int dst_ndim, const ssize_t *dst_shape, const ssize_t *dstride,
+		 const void *src, int src_ndim, const ssize_t *src_shape, const ssize_t *sstride,
+		 ssize_t itemsize, bool noisy)
 {
-    // Caller has checked that shapes are equal and nonempty.
+    // Check that dst/src shapes match.
+    
+    if (!shape_eq(dst_ndim, dst_shape, src_ndim, src_shape)) {
+	stringstream ss;
+	ss << "gputils::Array::fill(): dst_shape=" << shape_str(dst_ndim,dst_shape)
+	   << " and src_shape=" << shape_str(src_ndim,src_shape) << " are unequal";
+	throw runtime_error(ss.str());
+    }
+
+    int ndim = dst_ndim;
+    const ssize_t *shape = dst_shape;
+
+    // If empty array, then return early
+    
+    if (dst_ndim == 0)
+	return;
+    
+    for (int d = 0; d < ndim; d++) {
+	if (shape[d] == 0)
+	    return;
+    }
 
     // Uncoalesced axes
     fill_axis axes_u[ndim];
