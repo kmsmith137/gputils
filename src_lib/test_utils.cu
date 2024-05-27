@@ -286,6 +286,17 @@ assert_arrays_equal(const Array<T> &arr1,
 
 	maxdiff = max(maxdiff, delta);
 	bool failed = (delta > thresh);
+
+	// Automatically fail if either array contains NaN/Inf.
+	// (Could introduce a flag to toggle this behavior on/off.)
+	if constexpr (is_complex_v<T>) {
+	    if (!std::isfinite(x.real()) || !std::isfinite(x.imag()) || !std::isfinite(y.real()) || !std::isfinite(y.imag()))
+		failed = true;
+	}	    
+	else if constexpr (!is_integral_v<T>) {
+	    if (!std::isfinite(x) || !std::isfinite(y))
+		failed = true;
+	}
 	
 	if (!failed && !verbose)
 	    continue;
