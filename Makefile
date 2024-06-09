@@ -46,6 +46,7 @@ LIBFILES = \
   lib/libgputils.so
 
 XFILES = \
+  bin/time-atomic-add \
   bin/time-fma \
   bin/time-l2-cache \
   bin/time-local-transpose \
