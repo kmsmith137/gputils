@@ -190,8 +190,12 @@ static void time_global_atomic_add(const string &name, int iterations_per_thread
 static void time_global_atomic_add()
 {
     // (name, iterations_per_thread, nelts, sep_flag)
-    time_global_atomic_add<float> ("bigpool-fp32", 1024, 128*1024*1024, false);
-    time_global_atomic_add<double> ("bigpool-fp64", 1024, 128*1024*1024, false);
+    time_global_atomic_add<float> ("bigpool-fp32", 2*1024, 128*1024*1024, false);
+    time_global_atomic_add<double> ("bigpool-fp64", 2*1024, 128*1024*1024, false);
+    
+    // (name, iterations_per_thread, nelts, sep_flag)
+    time_global_atomic_add<float> ("tinypool-fp32", 2*1024, 16*1024, false);
+    time_global_atomic_add<double> ("tinypool-fp64", 2*1024, 16*1024, false);
 }
 
 
