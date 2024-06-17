@@ -130,7 +130,7 @@ static Array<float> unpack_amat(const Array<float> &a_arr, const Array<unsigned 
     assert(e_arr.shape_equals({32}));
     assert((f >= 0) && (f < 4));
 
-    Array<float> a_mat({16,16}, af_zero);
+    Array<float> a_mat({16,16}, af_rhost | af_zero);
 	
     for (int i = 0; i < 16; i++) {
 	for (int j23 = 0; j23 < 4; j23++) {
@@ -154,7 +154,7 @@ static Array<float> unpack_amat(const Array<float> &a_arr, const Array<unsigned 
 
 static Array<unsigned int> make_random_e_array()
 {
-    Array<unsigned int> e_arr({32}, af_zero);
+    Array<unsigned int> e_arr({32}, af_rhost | af_zero);
 
     for (int i = 0; i < 32; i++) {
 	for (int j = 0; j < 8; j++) {
@@ -175,9 +175,9 @@ static Array<unsigned int> make_random_e_array()
 
 static void test_sparse_mma()
 {
-    Array<float> a_arr({2,32,2}, af_random);
-    Array<float> b_arr({2,32,2}, af_random);
-    Array<float> c_arr({2,32,2}, af_random);
+    Array<float> a_arr({2,32,2}, af_rhost | af_random);
+    Array<float> b_arr({2,32,2}, af_rhost | af_random);
+    Array<float> c_arr({2,32,2}, af_rhost | af_random);
     Array<unsigned int> e_arr = make_random_e_array();
 
     Array<float> a_gpu = a_arr.to_gpu();
