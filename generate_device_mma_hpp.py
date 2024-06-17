@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+#
+# Reference:
+#   https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#warp-level-matrix-instructions-mma
 
 
 class Argument:
@@ -146,8 +149,11 @@ def emit_dense_f16_mma(m, n, k, s=1, layout=None):
 
 
 def emit_dense_int_mma(sbits, m, n, k):
-    cuda_name = f'mma_s{sbits}_m{m}_n{n}_k{k}'
-    ptx_name = f'mma.sync.aligned.m{m}n{n}k{k}.row.col.satfinite.s32.s{sbits}.s{sbits}.s32'
+    typename = f's{sbits}' if (sbits > 1) else 'b1'
+    satfinite = '.satfinite' if (sbits > 1) else ''
+    suffix = '' if (sbits > 1) else '.and.popc'
+    cuda_name = f'mma_{typename}_m{m}_n{n}_k{k}'
+    ptx_name = f'mma.sync.aligned.m{m}n{n}k{k}.row.col{satfinite}.s32.{typename}.{typename}.s32{suffix}'
     emit_dense_mma(cuda_name, ptx_name, 'int', 32, sbits, m, n, k)
 
 
@@ -193,17 +199,24 @@ if __name__ == '__main__':
     print(f'namespace gputils {{')
     print(f'')
 
+    # float16
     emit_dense_f16_mma(16, 8, 8)
     emit_dense_f16_mma(16, 8, 16)
 
+    # int4
     emit_dense_int_mma(4, 8, 8, 32)
     emit_dense_int_mma(4, 16, 8, 32)
     emit_dense_int_mma(4, 16, 8, 64)
 
+    # int8
     emit_dense_int_mma(8, 8, 8, 16)
     emit_dense_int_mma(8, 16, 8, 16)
     emit_dense_int_mma(8, 16, 8, 32)
 
+    # int1
+    emit_dense_int_mma(1, 8, 8, 128)
+
+    # sparse float16
     emit_sparse_f16_mma(16, 8, 16)
     emit_sparse_f16_mma(16, 8, 32)
 

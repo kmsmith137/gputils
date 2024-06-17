@@ -407,6 +407,9 @@ static void time_mmas(int num_active_warps=32)
     time_int_mma <mma_s4_m16_n8_k32, 4, 16, 8, 32> (1024*1024/num_active_warps, num_active_warps);
     time_int_mma <mma_s4_m16_n8_k64, 4, 16, 8, 64> (512*1024/num_active_warps, num_active_warps);
 
+    // int1
+    time_int_mma <mma_b1_m8_n8_k128, 1, 8, 8, 128> (2048*1024/num_active_warps, num_active_warps);
+
     // C++ int4
     time_cpp_int4_mma(2048*1024/num_active_warps, num_active_warps);
 
