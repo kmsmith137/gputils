@@ -153,7 +153,7 @@ def emit_dense_int_mma(sbits, m, n, k):
 
 def emit_sparse_f16_mma(m, n, k):
     cuda_name = f'mma_sp_f16_m{m}_n{n}_k{k}'
-    ptx_name = f'mma.sp.sync.aligned.m{m}n{n}k{k}.row.col.f16.f16.f16.f16'
+    ptx_name = f'mma.sp::ordered_metadata.sync.aligned.m{m}n{n}k{k}.row.col.f16.f16.f16.f16'
 
     # Register counts
     na = (m*k) // 128
