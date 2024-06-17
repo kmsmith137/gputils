@@ -8,39 +8,104 @@ using namespace std;
 using namespace gputils;
 
 
-static void show_permutations(int mx, int my, int mz, int nthreads_per_block)
+template<typename T>
+struct Tracker
 {
-    dim3 nblocks, nthreads;
+    int nelts = 0;
+    int nmc = 0;
+    
+    vector<double> sum;
+    vector<double> sum2;
+    vector<double> sum_imbalance;
+    
+    Tracker(int nelts_) :
+	nelts(nelts_),
+	sum(nelts_, 0.0),
+	sum2(nelts_, 0.0),
+	sum_imbalance((nelts_*(nelts_-1))/2, 0)
+    { }
 
-    // Show all 6 permutations
-    assign_kernel_dims(nblocks, nthreads, 32*mx, my, mz, nthreads_per_block, true);
-    assign_kernel_dims(nblocks, nthreads, 32*mx, mz, my, nthreads_per_block, true);
-    assign_kernel_dims(nblocks, nthreads, 32*my, mx, mz, nthreads_per_block, true);
-    assign_kernel_dims(nblocks, nthreads, 32*my, mz, mx, nthreads_per_block, true);
-    assign_kernel_dims(nblocks, nthreads, 32*mz, mx, my, nthreads_per_block, true);
-    assign_kernel_dims(nblocks, nthreads, 32*mz, my, mx, nthreads_per_block, true);
-}
+    void add(const vector<T> &v)
+    {
+	assert(v.size() == nelts);
+	nmc++;
+	
+	for (int i = 0; i < nelts; i++) {
+	    sum[i] += v[i];
+	    sum2[i] += v[i]*v[i];
+	}
+
+	int s = 0;
+	for (int i = 0; i < nelts; i++) {
+	    for (int j = i+1; j < nelts; j++) {
+		if (v[i] < v[j])
+		    sum_imbalance[s] -= 1.0;
+		else if (v[i] > v[j])
+		    sum_imbalance[s] += 1.0;
+	    }
+	    s++;
+	}
+    }
+
+    void summarize()
+    {
+	assert(nmc >= 10);
+	
+	for (int i = 0; i < nelts; i++) {
+	    double mean = sum[i] / nmc;
+	    double var = (sum2[i] - nmc*mean*mean) / (nmc-1);
+	    cout << "    Component " << i << ": mean = " << mean << ", std = " << sqrt(var) << endl;
+	}
+
+	int s = 0;	
+	for (int i = 0; i < nelts; i++) {
+	    for (int j = i+1; j < nelts; j++) {
+		double imbalance = sum_imbalance[s] / nmc;
+		cout << "    Components " << i << "," << j << ": imbalance = " << imbalance << endl;
+	    }
+	    s++;
+	}
+    }
+};
 
 
 int main(int argc, char **argv)
 {
-    cout << "Should find nwarps=(1,4,8) and overhead=0.52381\n";
-    show_permutations(3, 5, 7, 1024);     // should find nwarps=(2,2,8)
-
-    cout << "\nShould find nwarps=(2,4,4) and overhead=0.174825\n";
-    show_permutations(4, 11, 13, 1024);   // should find nwarps=(4,4,2)
-
-    cout << "\nShould find nwarps=(1,2,2) and overhead=0\n";
-    show_permutations(2, 6, 15, 128);     // should find nwarps=(2,2,1)
-
-    cout << "\nShould find nwarps=(1,2,2) and overhead=0.2\n";
-    show_permutations(2, 3, 5, 128);      // should find nwarps=(2,1,2)
-
-    cout << "\nShould find nwarps=(1,1,4) and overhead=0.142857\n";
-    show_permutations(7, 9, 13, 128);     // should find nwarps=(2,1,1)
-
-    cout << "\nShould find nwarps=(1,2,2) and overhead=0.196581\n";
-    show_permutations(5, 9, 13, 128);     // should find nwarps=(1,2,2)
+    cout << "Calling random_doubles_with_fixed_sum(4, 100.0)" << endl;
+    Tracker<double> dtracker(4);
     
-    return 0;
+    for (int n = 0; n < 1000*1000; n++) {
+	vector<double> v = random_doubles_with_fixed_sum(4, 100.0);
+	
+	if (n <= 10) {
+	    double sum = 0.0;
+	    for (uint i = 0; i < v.size(); i++)
+		sum += v[i];
+	    cout << "    Call " << n << ": " << tuple_str(v," ") << ", sum=" << sum << endl;
+	}
+
+	dtracker.add(v);
+    }
+
+    dtracker.summarize();
+
+    // -------------------------------------------------------------------------------------------------
+
+    cout << "Calling random_integers_with_bounded_product(4, 1000*1000)" << endl;
+    Tracker<ssize_t> itracker(4);
+    
+    for (int n = 0; n < 1000*1000; n++) {
+	vector<ssize_t> v = random_integers_with_bounded_product(4, 1000*1000);
+	
+	if (n <= 10) {
+	    ssize_t product = 1;
+	    for (uint i = 0; i < v.size(); i++)
+		product *= v[i];
+	    cout << "    Call " << n << ": " << tuple_str(v," ") << ", product=" << product << endl;
+	}
+
+	itracker.add(v);
+    }
+
+    itracker.summarize();
 }
