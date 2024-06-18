@@ -72,6 +72,11 @@ class Argument:
 
 
 def emit_kernel(cuda_name, ptx_name, *args):
+    # 'ordered_metadata' was introduced in nvcc 12.5 (I think), and we accommodate it with a hack (see below).
+    # FIXME some day, when nvcc 12.4 is ancient history, this hack can be removed.
+    omstr = '::ordered_metadata'
+    omi = ptx_name.find(omstr)
+    
     template_arglist = [ ]
     cuda_arglist = [ ]
     
@@ -91,7 +96,17 @@ def emit_kernel(cuda_name, ptx_name, *args):
     print(f'__device__ __forceinline__')
     print(f'void {cuda_name}({cuda_argstr})')
     print(f'{{')
-    print(f'    asm("{ptx_name} "')
+
+    if omi < 0:
+        print(f'    asm("{ptx_name} "')
+    else:
+        ptx_name2 = ptx_name[:omi] + ptx_name[omi+len(omstr):]
+        print(f'    asm(')
+        print(f'#if CUDART_VERSION >= 12050')
+        print(f'        "{ptx_name} "')
+        print(f'#else')
+        print(f'        "{ptx_name2} "')
+        print(f'#endif')
 
     base = 0
     for i,arg in enumerate(args):
