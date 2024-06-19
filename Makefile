@@ -94,10 +94,6 @@ lib/libgputils.a: $(OFILES)
 	rm -f $@
 	ar rcs $@ $^
 
-# Special rule for procedurally generating 'device_mma.hpp'
-include/gputils/device_mma.hpp: generate_device_mma_hpp.py
-	python3 $^ >$@
-
 INSTALL_DIR ?= /usr/local
 
 install: $(LIBFILES)

@@ -1,6 +1,5 @@
 *~
 *.o
 bin/
-include/gputils/device_mma.hpp
 lib/libgputils.a
 lib/libgputils.so

@@ -2,6 +2,13 @@
 #
 # Reference:
 #   https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#warp-level-matrix-instructions-mma
+#
+# Note: I'm no longer running this as part of the build process (in an automated way).
+#
+# Instead, I'm keeping the output file (include/gputils/device_mma.hpp) in git, and occasionally
+# updating by hand:
+#
+#   ./generate_device_mma_hpp.py > include/gputils/device_mma.hpp     
 
 
 class Argument:
