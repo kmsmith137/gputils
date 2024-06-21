@@ -50,5 +50,9 @@
 // get_time(), time_diff(), time_since()
 #include "gputils/time_utils.hpp"
 
+// pybind11 files are not included by default!
+
+// #include "gputils/pybind11.hpp"            // externally visible Array<> converters
+// #include "gputils/pybind11_utils.gpp"      // utility functions, unlikely to be useful from outside gputils
 
 #endif // _GPUTILS_HPP

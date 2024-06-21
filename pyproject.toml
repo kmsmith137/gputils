@@ -1,0 +1,17 @@
+[build-system]
+build-backend = 'mesonpy'
+requires = [ 'meson-python', 'pybind11', 'numpy' ]
+
+[project]
+name = 'gputils'
+version = '1.0.0'
+dependencies = [ 'pybind11', 'numpy', 'cupy' ]
+description = 'A library of low-level utilities for cuda/cupy'
+# readme = 'README.md'
+# requires-python = '>=3.8'
+# license = {file = 'LICENSE.txt'}
+# authors = [ {name = 'Kendrick Smith', email = 'kmsmith@perimeterinstitute.ca'} ]
+
+[tool.meson-python.args]
+setup = ['-Db_ndebug=false']  # don't compile with -DNDEBUG (which disables asserts)
+compile = ['--verbose']       # only takes effect if 'pip install' is invoked with '-v' flag
