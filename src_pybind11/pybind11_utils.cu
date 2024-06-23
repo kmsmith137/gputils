@@ -70,13 +70,13 @@ static string dl_type_to_str(DLDataType d)
 
     if (d.code == kDLComplex) {
 	int n2 = d.bits >> 1;
-	ss << n2 << "+" << (d.bits - n2);
+	ss << n2 << "+" << int(d.bits - n2);
     }
     else if ((d.code != kDLBool) || (d.bits != 1))
-	ss << d.bits;
+	ss << int(d.bits);
 
     if (d.lanes != 1)
-	ss << "x" << d.lanes;
+	ss << "x" << int(d.lanes);
 
     return ss.str();
 
@@ -272,6 +272,7 @@ void convert_array_from_python(
 	throw pybind11::type_error(ss.str());
     }
 
+#if 0
     if (t.device.device_id != 0) {
 	stringstream ss;
 	ss << "Couldn't convert python argument to a C++ array."
@@ -284,6 +285,7 @@ void convert_array_from_python(
 	
 	throw pybind11::type_error(ss.str());
     }
+#endif
     
     if (ndim > gputils::ArrayMaxDim) {
 	stringstream ss;
@@ -302,7 +304,7 @@ void convert_array_from_python(
 	
 	stringstream ss;
 	ss << "Couldn't convert python argument to a C++ array: type mismatch."
-	   << " The python argument has dtype " << dl_type_to_str(t.dtype) << ", "
+	   << " The python argument has dtype " << dl_type_to_str(t.dtype) << ","
 	   << " and the C++ code expects dtype " << dl_type_to_str(dsrc) << "."
 	   << " The offending argument is: " << py_str(src)
 	   << " and its type is " << py_type_str(src) << ".";

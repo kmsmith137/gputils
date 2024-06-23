@@ -335,6 +335,36 @@ assert_arrays_equal(const Array<T> &arr1,
 }
 
 
+// -------------------------------------------------------------------------------------------------
+
+
+__global__ void busy_wait_kernel(uint *arr, long niter)
+{
+    uint x = arr[threadIdx.x];
+    for (long i = 0; i < niter; i++) {
+	x = (x ^ 0x12345678U);
+	x = (x << 5) ^ (x >> 10);
+    }
+    arr[threadIdx.x] = x;
+}
+
+void launch_busy_wait_kernel(Array<uint> &arr, double a40_seconds, cudaStream_t s)
+{
+    assert(arr.ndim == 1);
+    assert(arr.size == 32);
+    assert(arr.strides[0] == 1);
+    assert(arr.on_gpu());
+
+    long niter = 1.4e8 * a40_seconds;
+    
+    busy_wait_kernel <<< 1, 32, 0, s >>>
+	(arr.data, niter);
+}
+
+
+// -------------------------------------------------------------------------------------------------
+
+
 #define INSTANTIATE_PRINT_ARRAY(T)	    \
     template void print_array(              \
 	const Array<T> &arr,                \

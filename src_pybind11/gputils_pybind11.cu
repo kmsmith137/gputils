@@ -2,6 +2,8 @@
 #define PY_ARRAY_UNIQUE_SYMBOL PyArray_API_gputils
 
 #include "../include/gputils/pybind11.hpp"
+#include "../include/gputils/cuda_utils.hpp"
+#include "../include/gputils/test_utils.hpp"
 #include <iostream>
 
 
@@ -87,6 +89,21 @@ static void _convert_array_from_python(py::object &obj)
 }
 
 
+int get_cuda_device()
+{
+    int device = -1;
+    CUDA_CALL(cudaGetDevice(&device));
+    return device;
+}
+
+
+void _launch_busy_wait_kernel(Array<uint> &arr, double a40_sec, long stream_ptr)
+{
+    cudaStream_t s = reinterpret_cast<cudaStream_t> (stream_ptr);
+    gputils::launch_busy_wait_kernel(arr, a40_sec, s);
+}
+
+
 struct Stash
 {
     Array<double> x;
@@ -168,9 +185,13 @@ PYBIND11_MODULE(gputils_pybind11, m)  // extension module gets compiled to gputi
 	  " (FIXME CPU-only for now.)",
 	  py::arg("n"));
 
-    m.def("convert_array_from_python",
-	  &_convert_array_from_python,
+    m.def("convert_array_from_python", &_convert_array_from_python,
 	  "Converts Array<double> from python to C++, but with a lot of debug output."
 	  " This is intended as a mechanism for tracing/debugging array conversion.",
 	  py::arg("arr"));
+
+    m.def("get_cuda_device", &get_cuda_device, "Wraps cudaGetDevice()");
+
+    m.def("_launch_busy_wait_kernel", &_launch_busy_wait_kernel,
+	  py::arg("arr"), py::arg("a40_sec"), py::arg("stream_ptr"));
 }

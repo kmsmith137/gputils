@@ -76,6 +76,19 @@ extern void make_random_reshape_compatible_shapes(std::vector<ssize_t> &dst_shap
 						  ssize_t maxsize = 10000);
 
 
+// -------------------------------------------------------------------------------------------------
+
+
+// Launches a "busy wait" kernel with one threadblock and 32 threads.
+// Useful for testing stream synchronization.
+//
+// The 'arr' argument is a caller-allocated length-32 array.
+// The 'a40_seconds' arg determines the amount of work done by the kernel,
+// normalized to "seconds on an NVIDIA A40".
+
+extern void launch_busy_wait_kernel(Array<uint> &arr, double a40_seconds, cudaStream_t s);
+
+
 }  // namespace test_utils
 
 #endif // _GPUTILS_TEST_UTILS_HPP
