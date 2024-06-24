@@ -6,6 +6,7 @@
 #include <iostream>
 
 #include "../include/gputils/Array.hpp"
+#include "../include/gputils/cuda_utils.hpp"    // CUDA_CALL()
 #include "../include/gputils/string_utils.hpp"  // tuple_str()
 #include "../include/gputils/pybind11_utils.hpp"
 
@@ -259,11 +260,14 @@ void convert_array_from_python(
     ndim = t.ndim;
     data = (char *)t.data + t.byte_offset;
     aflags = device_type_to_aflags(t.device.device_type);
+
+    int current_device = -1;
+    CUDA_CALL(cudaGetDevice(&current_device));
     
     if (aflags == 0) {
 	stringstream ss;
-	ss << "Couldn't convert python argument to a C++ array."
-	   << " The python argument returned DLDeviceType=" << t.device.device_type
+	ss << "Couldn't convert python array to a C++ array."
+	   << " The python array has DLDeviceType=" << t.device.device_type
 	   << " [" << dl_device_type_to_str(t.device.device_type) << "],"
 	   << " which we don't currently support."
 	   << " The offending argument is: " << py_str(src)
@@ -272,20 +276,16 @@ void convert_array_from_python(
 	throw pybind11::type_error(ss.str());
     }
 
-#if 0
-    if (t.device.device_id != 0) {
+    if (t.device.device_id != current_device) {
 	stringstream ss;
-	ss << "Couldn't convert python argument to a C++ array."
-	   << " The python argument returned device_id=" << t.device.device_id
-	   << " and we only support device_id=0. (Multi-GPU support is coming soon!)"
+	ss << "Couldn't convert python array to a C++ array."
+	   << " The python array has device_id=" << t.device.device_id
+	   << " and the active cuda device is id=" << current_device << "."
 	   << " The offending argument is: " << py_str(src)
-	   << " its DLDeviceType is " << t.device.device_type << ","
-	   << " [" << dl_device_type_to_str(t.device.device_type) << "],"	    
 	   << " and its type is " << py_type_str(src) << ".";
 	
 	throw pybind11::type_error(ss.str());
     }
-#endif
     
     if (ndim > gputils::ArrayMaxDim) {
 	stringstream ss;
@@ -304,7 +304,7 @@ void convert_array_from_python(
 	
 	stringstream ss;
 	ss << "Couldn't convert python argument to a C++ array: type mismatch."
-	   << " The python argument has dtype " << dl_type_to_str(t.dtype) << ","
+	   << " The python array has dtype " << dl_type_to_str(t.dtype) << ","
 	   << " and the C++ code expects dtype " << dl_type_to_str(dsrc) << "."
 	   << " The offending argument is: " << py_str(src)
 	   << " and its type is " << py_type_str(src) << ".";
