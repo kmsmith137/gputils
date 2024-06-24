@@ -19,7 +19,7 @@ namespace gputils {
 //
 // If the 'debug_prefix' argument is specified, then some debug info will be printed to stdout.
 // This feature is wrapped by gputils.convert_array_from_python(). It is intended as a mechanism
-// for tracing/debugging array conversion/
+// for tracing/debugging array conversion.
 
 extern void convert_array_from_python(
     void *&data, int &ndim, ssize_t *shape, ssize_t *strides, ssize_t &size,

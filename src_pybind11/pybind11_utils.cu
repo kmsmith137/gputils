@@ -167,7 +167,7 @@ static int device_type_to_aflags(DLDeviceType d)
 // This feature is wrapped by gputils.convert_array_from_python(). It is intended as a mechanism
 // for tracing/debugging array conversion.
 
-
+__attribute__ ((visibility ("default")))
 void convert_array_from_python(
     void *&data, int &ndim, ssize_t *shape, ssize_t *strides, ssize_t &size,
     int dlpack_type_code, int itemsize, std::shared_ptr<void> &base, int &aflags,
@@ -347,7 +347,7 @@ void convert_array_from_python(
 //   https://pybind11.readthedocs.io/en/stable/advanced/functions.html#return-value-policies
 //   https://github.com/pybind/pybind11/blob/master/include/pybind11/detail/common.h
 
-
+__attribute__ ((visibility ("default")))
 PyObject *convert_array_to_python(
     void *data, int ndim, const ssize_t *shape, const ssize_t *strides,
     int type_num, int itemsize, const shared_ptr<void> &base, int aflags,
