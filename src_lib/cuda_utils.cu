@@ -1,11 +1,10 @@
-#include <random>
-#include <cstring>
-#include <cassert>
-#include <sstream>
-#include <iostream>
-
 #include "../include/gputils/cuda_utils.hpp"
 #include "../include/gputils/string_utils.hpp"  // from_str()
+
+#include <random>
+#include <cstring>
+#include <sstream>
+#include <iostream>
 
 using namespace std;
 

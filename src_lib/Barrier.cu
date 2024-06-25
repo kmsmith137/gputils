@@ -1,6 +1,6 @@
 #include "../include/gputils/Barrier.hpp"
+#include "../include/gputils/xassert.hpp"
 
-#include <cassert>
 #include <stdexcept>
 
 // Branch predictor hint
@@ -19,25 +19,18 @@ namespace gputils {
 
 Barrier::Barrier(int nthreads_)
 {
-    if (_unlikely(nthreads_ < 0))
-	throw runtime_error("Barrier constructor: expected nthreads <= 0");
-
+    xassert_msg(nthreads_ > 0, "Barrier constructor: expected nthreads > 0");
     this->nthreads = nthreads_;
 }
 
 
 void Barrier::initialize(int nthreads_)
 {
-    assert(nthreads_ > 0);
-
+    xassert(nthreads_ > 0);
     std::unique_lock ul(lock);
-    
-    if (_unlikely(this->nthreads > 0))
-	throw runtime_error("Barrier::initialize() called on already-initialized Barrier");
-    
-    if (_unlikely(this->aborted))
-	throw runtime_error(this->abort_msg);
 
+    xassert_msg(this->nthreads <= 0, "Barrier::initialize() called on already-initialized Barrier");
+    xassert_msg(!this->aborted, this->abort_msg);
     this->nthreads = nthreads_;
 }
 
@@ -46,11 +39,8 @@ void Barrier::wait()
 {
     std::unique_lock ul(lock);
 
-    if (_unlikely(nthreads <= 0))
-	throw runtime_error("Barrier::wait() called on uninitialized Barrier");
-    
-    if (_unlikely(aborted))
-	throw runtime_error(abort_msg);
+    xassert_msg(nthreads > 0, "Barrier::wait() called on uninitialized Barrier");
+    xassert_msg(!aborted, abort_msg);
 
     if (nthreads_waiting == nthreads-1) {
 	this->nthreads_waiting = 0;

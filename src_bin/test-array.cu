@@ -45,9 +45,9 @@ struct RandomlyStridedArray {
 	}
 		
 	ndim = shape.size();
-	assert(ndim > 0);
-	assert(ndim <= ArrayMaxDim);
-	assert(shape.size() == strides.size());
+	xassert(ndim > 0);
+	xassert(ndim <= ArrayMaxDim);
+	xassert(shape.size() == strides.size());
 
 	cbase_len = 1;
 	for (int d = 0; d < ndim; d++) 
@@ -95,7 +95,7 @@ struct RandomlyStridedArray {
     
     bool find(long pos, long *ix_out) const
     {
-	assert(pos >= 0 && pos < cbase_len);
+	xassert(pos >= 0 && pos < cbase_len);
 
 	// Process axes from largest stride to smallest
 	for (int d = ndim-1; d >= 0; d--) {
@@ -127,7 +127,7 @@ struct RandomlyStridedArray {
 	
 	for (long i = 0; i < cbase_len; i++)
 	    if (!find(i, ix_out))
-		assert(p1[i] == p2[i]);
+		xassert(p1[i] == p2[i]);
     }
 
     // test_basics(): tests consistency of find(), Array::at(), and
@@ -144,21 +144,21 @@ struct RandomlyStridedArray {
 
 	for (auto ix = arr.ix_start(); arr.ix_valid(ix); arr.ix_next(ix)) {
 	    long j = &arr.at(ix) - arr.data;
-	    assert(j >= 0 && j < cbase_len);
-	    assert(find(j, ix_out));
-	    assert(!flag[j]);
+	    xassert(j >= 0 && j < cbase_len);
+	    xassert(find(j, ix_out));
+	    xassert(!flag[j]);
 	    flag[j] = true;
 	    s++;
 
 	    for (int d = 0; d < ndim; d++)
-		assert(ix_out[d] == ix[d]);
+		xassert(ix_out[d] == ix[d]);
 	}
 
-	assert(s == arr.size);
+	xassert(s == arr.size);
 
 	for (long j = 0; j < cbase_len; j++)
 	    if (!flag[j])
-		assert(!find(j, ix_out));
+		xassert(!find(j, ix_out));
     }
 
     
@@ -167,7 +167,7 @@ struct RandomlyStridedArray {
 	long ix_out[ndim];
 
 	// Thin-slicing 1-D arrays isn't implemented (see comment in Array.hpp)
-	assert(ndim > 1);
+	xassert(ndim > 1);
 	
 	if (noisy)
 	    cout << "    test_thin_slice(axis=" << axis << ",pos=" << pos << ")" << endl;
@@ -175,22 +175,22 @@ struct RandomlyStridedArray {
 	Array<T> s = arr.slice(axis, pos);
 	s.check_invariants();
 
-	assert(s.ndim == ndim-1);
+	xassert(s.ndim == ndim-1);
 	for (int d = 0; d < axis; d++)
-	    assert(s.shape[d] == arr.shape[d]);
+	    xassert(s.shape[d] == arr.shape[d]);
 	for (int d = axis+1; d < ndim; d++)
-	    assert(s.shape[d-1] == arr.shape[d]);
+	    xassert(s.shape[d-1] == arr.shape[d]);
 
 	for (auto ix = s.ix_start(); s.ix_valid(ix); s.ix_next(ix)) {
 	    long j = &s.at(ix) - arr.data;
-	    assert(j >= 0 && j < cbase_len);
-	    assert(find(j, ix_out));
+	    xassert(j >= 0 && j < cbase_len);
+	    xassert(find(j, ix_out));
 
-	    assert(ix_out[axis] == pos);
+	    xassert(ix_out[axis] == pos);
 	    for (int d = 0; d < axis; d++)
-		assert(ix_out[d] == ix[d]);
+		xassert(ix_out[d] == ix[d]);
 	    for (int d = axis+1; d < ndim; d++)
-		assert(ix_out[d] == ix[d-1]);
+		xassert(ix_out[d] == ix[d-1]);
 	}
     }
 
@@ -215,20 +215,20 @@ struct RandomlyStridedArray {
 	Array<T> s = arr.slice(axis, start, stop);
 	s.check_invariants();
 
-	assert(s.ndim == ndim);
+	xassert(s.ndim == ndim);
 	for (int d = 0; d < ndim; d++) {
 	    long t = (d == axis) ? (stop-start) : arr.shape[d];
-	    assert(s.shape[d] == t);
+	    xassert(s.shape[d] == t);
 	}
 
 	for (auto ix = s.ix_start(); s.ix_valid(ix); s.ix_next(ix)) {
 	    long j = &s.at(ix) - arr.data;
-	    assert(j >= 0 && j < cbase_len);
-	    assert(find(j, ix_out));
+	    xassert(j >= 0 && j < cbase_len);
+	    xassert(find(j, ix_out));
 
 	    for (int d = 0; d < ndim; d++) {
 		long t = (d == axis) ? start : 0;
-		assert(ix_out[d] == ix[d] + t);
+		xassert(ix_out[d] == ix[d] + t);
 	    }
 	}
     }
@@ -304,7 +304,7 @@ struct FillTestInstance {
 	arr1.fill(arr2);
 	
 	for (auto ix = arr1.ix_start(); arr1.ix_valid(ix); arr1.ix_next(ix))
-	    assert(arr1.at(ix) == arr2.at(ix));
+	    xassert(arr1.at(ix) == arr2.at(ix));
 	
 	rs1.check_for_buffer_overflows();
 	rs2.check_for_buffer_overflows();
@@ -344,7 +344,7 @@ static void test_reshape_ref(const vector<long> &dst_shape,
     for (;;) {
 	bool src_valid = src.ix_valid(src_ix);
 	bool dst_valid = dst.ix_valid(dst_ix);
-	assert(src_valid == dst_valid);
+	xassert(src_valid == dst_valid);
 
 	if (!src_valid)
 	    return;
@@ -352,7 +352,7 @@ static void test_reshape_ref(const vector<long> &dst_shape,
 	// Compare array addresses (not contents).
 	const T *srcp = &src.at(src_ix);
 	const T *dstp = &dst.at(dst_ix);
-	assert(srcp == dstp);
+	xassert(srcp == dstp);
 	
 	src.ix_next(src_ix);
 	dst.ix_next(dst_ix);
@@ -400,7 +400,7 @@ static void test_convert_dtype(const vector<long> &shape, const vector<long> &st
     Array<Tsrc> src(shape, strides, af_uhost | af_random);
     Array<Tdst> dst = src.template convert_dtype<Tdst> ();
 
-    assert(dst.shape_equals(src));
+    xassert(dst.shape_equals(src));
 
     for (auto ix = src.ix_start(); src.ix_valid(ix); src.ix_next(ix)) {
 	double fsrc = convert_to_double(src.at(ix));
@@ -408,7 +408,7 @@ static void test_convert_dtype(const vector<long> &shape, const vector<long> &st
 	
 	// FIXME currently assuming threshold appropriate for float16,
 	// since the only implemented conversions are float32 <-> float16.
-	assert(abs(fsrc-fdst) < epsilon);
+	xassert(abs(fsrc-fdst) < epsilon);
     }
 }
 

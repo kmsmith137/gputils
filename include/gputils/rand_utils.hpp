@@ -4,12 +4,11 @@
 #include <vector>
 #include <random>
 #include <complex>
-#include <cassert>
 #include <type_traits>
 #include <cuda_fp16.h>
 
-// is_complex_v<T>, decomplexify_type<T>::type
-#include "complex_type_traits.hpp"
+#include "xassert.hpp"
+#include "complex_type_traits.hpp"  // is_complex_v<T>, decomplexify_type<T>::type
 
 namespace gputils {
 #if 0
@@ -24,7 +23,7 @@ extern std::mt19937 default_rng;
 
 inline long rand_int(long lo, long hi, std::mt19937 &rng = default_rng)
 {
-    assert(lo < hi);
+    xassert(lo < hi);
     return std::uniform_int_distribution<long>(lo,hi-1)(rng);   // note hi-1 here!
 }
 
@@ -71,7 +70,7 @@ inline void randomize_i(T *buf, long nelts, std::mt19937 &rng = default_rng)
 template<typename T>
 inline void randomize(T *buf, long nelts, std::mt19937 &rng = default_rng)
 {
-    assert(nelts >= 0);
+    xassert(nelts >= 0);
 
     if constexpr (gputils::is_complex_v<T>) {
 	using Tr = typename gputils::decomplexify_type<T>::type;
@@ -90,7 +89,7 @@ inline void randomize(T *buf, long nelts, std::mt19937 &rng = default_rng)
 template<>
 inline void randomize(__half *buf, long nelts, std::mt19937 &rng)
 {
-    assert(nelts >= 0);    
+    xassert(nelts >= 0);    
     auto dist = std::uniform_real_distribution<float>(-1.0f, 1.0f);
     
     for (long i = 0; i < nelts; i++)
@@ -102,7 +101,7 @@ inline void randomize(__half *buf, long nelts, std::mt19937 &rng)
 template<>
 inline void randomize(__half2 *buf, long nelts, std::mt19937 &rng)
 {
-    assert(nelts >= 0);
+    xassert(nelts >= 0);
     auto dist = std::uniform_real_distribution<float>(-1.0f, 1.0f);
     
     for (long i = 0; i < nelts; i++) {
@@ -129,7 +128,7 @@ inline void randomly_permute(std::vector<T> &v, std::mt19937 &rng = default_rng)
 // Returns a random permutation of {0,1,...,(n-1)}
 inline std::vector<long> rand_permutation(long nelts, std::mt19937 &rng = default_rng)
 {
-    assert(nelts >= 0);
+    xassert(nelts >= 0);
     
     std::vector<long> v(nelts);
     for (long i = 0; i < nelts; i++)
@@ -143,7 +142,7 @@ inline std::vector<long> rand_permutation(long nelts, std::mt19937 &rng = defaul
 template<typename T>
 inline T rand_element(const std::vector<T> &v, std::mt19937 &rng = default_rng)
 {
-    assert(v.size() > 0);
+    xassert(v.size() > 0);
     long ix = rand_int(0, v.size(), rng);
     return v[ix];
 }
@@ -151,7 +150,7 @@ inline T rand_element(const std::vector<T> &v, std::mt19937 &rng = default_rng)
 template<typename T>
 inline T rand_element(const std::initializer_list<T> v, std::mt19937 &rng = default_rng)
 {
-    assert(v.size() > 0);
+    xassert(v.size() > 0);
     int ix = rand_int(0, v.size(), rng);
     return std::data(v)[ix];
 }

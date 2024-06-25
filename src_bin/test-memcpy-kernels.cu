@@ -19,7 +19,7 @@ static void test_memcpy_kernel(long nbytes)
     long nelts = nbytes >> 2;
     long nguard = 128;
     
-    assert((nbytes % 128) == 0);
+    xassert((nbytes % 128) == 0);
     
     Array<int> hsrc({nelts}, af_rhost | af_random);
     Array<int> hdst({nelts + 2*nguard}, af_rhost | af_random);

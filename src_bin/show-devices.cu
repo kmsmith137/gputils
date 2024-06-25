@@ -1,6 +1,7 @@
 #include <cmath>
-#include <cassert>
 #include <iostream>
+
+#include "../include/gputils/cuda_utils.hpp"
 
 using namespace std;
 
@@ -11,8 +12,7 @@ static void show_device(int device)
 
     // https://docs.nvidia.com/cuda/cuda-runtime-api/structcudaDeviceProp.html
     cudaDeviceProp prop;
-    cudaError_t err = cudaGetDeviceProperties(&prop, device);
-    assert(err == cudaSuccess);
+    CUDA_CALL(cudaGetDeviceProperties(&prop, device));
 
     cout << "    name = " << prop.name << "\n"
 	 << "    compute capability = " << prop.major << "." << prop.minor << "\n"
@@ -30,8 +30,7 @@ static void show_device(int device)
 int main(int argc, char **argv)
 {
     int ndevices = -1;
-    cudaError_t err = cudaGetDeviceCount(&ndevices);
-    assert(err == cudaSuccess);
+    CUDA_CALL(cudaGetDeviceCount(&ndevices));
 
     cout << "Number of devices: " << ndevices << endl;
 

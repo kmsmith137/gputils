@@ -1,9 +1,7 @@
 #ifndef _GPUTILS_CUDA_UTILS_HPP
 #define _GPUTILS_CUDA_UTILS_HPP
 
-#include <vector>
 #include <memory>
-#include <cassert>
 #include <stdexcept>
 
 

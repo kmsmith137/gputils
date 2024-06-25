@@ -136,13 +136,13 @@ struct BitMapping
     BitMapping(const vector<string> &names_)
 	: names(names_), rank(names_.size())
     {
-	assert(rank >= 5);
-	assert(rank <= 15);
+	xassert(rank >= 5);
+	xassert(rank <= 15);
 	
 	// No duplicates
 	for (int i = 1; i < rank; i++)
 	    for (int j = 0; j < i; j++)
-		assert(names[i] != names[j]);
+		xassert(names[i] != names[j]);
     }
 
     int name_to_index(const string &bit_name) const
@@ -155,8 +155,8 @@ struct BitMapping
 
     string index_to_name(int i) const
     {
-	assert(i >= 0);
-	assert(i < (1 << rank));
+	xassert(i >= 0);
+	xassert(i < (1 << rank));
 
 	stringstream ss;
 	ss << "[";
@@ -184,15 +184,15 @@ struct BitMapping
 
 static void test_shuffle_kernel(const Array<int> &dst_, const BitMapping &bm_phys, const BitMapping &bm_in, const BitMapping &bm_out)
 {
-    assert(bm_phys.rank == bm_in.rank);
-    assert(bm_phys.rank == bm_out.rank);
+    xassert(bm_phys.rank == bm_in.rank);
+    xassert(bm_phys.rank == bm_out.rank);
     
     int rank = bm_phys.rank;
     int n = (1 << rank);
     int nfail = 0;
 
     Array<int> dst = dst_.to_host();
-    assert(dst.shape_equals({n}));
+    xassert(dst.shape_equals({n}));
 
     for (int i = 0; i < n; i++) {
 	int d_expected = 0;

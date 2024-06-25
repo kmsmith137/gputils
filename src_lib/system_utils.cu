@@ -1,8 +1,8 @@
 #include "../include/gputils/system_utils.hpp"
 #include "../include/gputils/string_utils.hpp"
+#include "../include/gputils/xassert.hpp"
 
 #include <thread>
-#include <cassert>
 #include <sstream>
 #include <stdexcept>
 #include <unistd.h>
@@ -25,9 +25,8 @@ namespace gputils {
 
 // -------------------------------------------------------------------------------------------------
 
-// FIXME variants of errstr() appear in many source files; define common version somewhere.
-// Maybe it's time for <gputils/asserts.hpp> which defines _unlikely(), assert macros, exception factory functions, etc?
 
+// FIXME variants of errstr() appear in many source files; define common version somewhere.
 inline string errstr(const string &func_name)
 {
     stringstream ss;
@@ -77,21 +76,21 @@ void mlockall_x(int flags)
 
 void *mmap_x(void *addr, long length, int prot, int flags, int fd, off_t offset)
 {
-    assert(length > 0);
+    xassert(length > 0);
     
     void *ret = mmap(addr, length, prot, flags, fd, offset);
 
     if (_unlikely(ret == MAP_FAILED))
 	throw runtime_error(errstr("mmap"));
 
-    assert(ret != nullptr);  // paranoid
+    xassert(ret != nullptr);  // paranoid
     return ret;
 }
 
 	     
 void munmap_x(void *addr, long length)
 {
-    assert(length > 0);
+    xassert(length > 0);
     
     int err = munmap(addr, length);
 
@@ -104,8 +103,8 @@ void usleep_x(long usec)
 {
     // According to usleep() manpage, sleeping for longer than this is an error!
     static constexpr long max_usleep = 1000000;
-	
-    assert(usec >= 0);
+    
+    xassert(usec >= 0);
 
     while (usec > 0) {
 	long n = std::min(usec, max_usleep);

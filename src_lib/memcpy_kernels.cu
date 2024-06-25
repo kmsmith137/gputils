@@ -1,6 +1,6 @@
 #include "../include/gputils/memcpy_kernels.hpp"
+#include "../include/gputils/xassert.hpp"
 
-#include <cassert>
 #include <iostream>
 #include <stdexcept>
 
@@ -35,11 +35,11 @@ void launch_memcpy_kernel(void *dst, const void *src, long nbytes, cudaStream_t 
 
     static_assert(max_nbytes <= max_nblocks * nelts_per_block * 4);
     
-    assert(dst != nullptr);
-    assert(src != nullptr);
-    assert(nbytes >= 0);
-    assert(nbytes <= max_nbytes);
-    assert((nbytes % 128) == 0);
+    xassert(dst != nullptr);
+    xassert(src != nullptr);
+    xassert(nbytes >= 0);
+    xassert(nbytes <= max_nbytes);
+    xassert((nbytes % 128) == 0);
 
     if (nbytes == 0)
 	return;
@@ -48,7 +48,7 @@ void launch_memcpy_kernel(void *dst, const void *src, long nbytes, cudaStream_t 
     long nblocks = (nelts + nelts_per_block - 1) / nelts_per_block;
 
     // Should never fail
-    assert((nblocks > 0) && (nblocks <= max_nblocks));
+    xassert((nblocks > 0) && (nblocks <= max_nblocks));
     
     memcpy_kernel<<< nblocks, nthreads_per_block, 0, stream >>>
 	(reinterpret_cast<int *> (dst),
@@ -83,17 +83,17 @@ void launch_memcpy_2d_kernel(void *dst, long dpitch, const void *src, long spitc
     static constexpr long max_nblocks_x = (1L << 31) - 1;  // cuda limit
     static constexpr long max_nblocks_y = 65535;           // cuda limit
 
-    assert(dst != nullptr);
-    assert(src != nullptr);
-    assert(width >= 0);
-    assert(height >= 0);
+    xassert(dst != nullptr);
+    xassert(src != nullptr);
+    xassert(width >= 0);
+    xassert(height >= 0);
 
     // Note: could be generalized to allow negative pitches.
-    assert(dpitch >= width);
-    assert(spitch >= width);
-    assert((width % 128) == 0);
-    assert((dpitch % 128) == 0);
-    assert((spitch % 128) == 0);
+    xassert(dpitch >= width);
+    xassert(spitch >= width);
+    xassert((width % 128) == 0);
+    xassert((dpitch % 128) == 0);
+    xassert((spitch % 128) == 0);
 
     if ((width == 0) || (height == 0))
 	return;
@@ -126,9 +126,9 @@ void launch_memcpy_2d_kernel(void *dst, long dpitch, const void *src, long spitc
     long nblocks_y = (nrows + nrows_per_block - 1) / nrows_per_block;  // rows
     long nblocks_x = (ncols + nthreads.x - 1) / nthreads.x;            // cols
 
-    // FIXME need more asserts up-front, to ensure that these should never fail
-    assert((nblocks_x > 0) && (nblocks_x <= max_nblocks_x));
-    assert((nblocks_y > 0) && (nblocks_y <= max_nblocks_y));
+    // FIXME add more checks up-front, to ensure that these never fail
+    xassert((nblocks_x > 0) && (nblocks_x <= max_nblocks_x));
+    xassert((nblocks_y > 0) && (nblocks_y <= max_nblocks_y));
 
     dim3 nblocks;
     nblocks.x = nblocks_x;

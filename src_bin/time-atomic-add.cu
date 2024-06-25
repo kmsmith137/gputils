@@ -46,9 +46,9 @@ __global__ void curand_init_kernel(curand_state_t *sp, ulong seed, long nelts)
 CurandStateArray::CurandStateArray(long nelts_, ulong seed)
     : nelts(nelts_)
 {
-    assert(nelts > 0);
-    assert((nelts % 32) == 0);
-    assert(nelts <= 1024L * 1024L * 1024L);
+    xassert(nelts > 0);
+    xassert((nelts % 32) == 0);
+    xassert(nelts <= 1024L * 1024L * 1024L);
 
     this->ref = _af_alloc(nelts * sizeof(curand_state_t), af_gpu);
     this->data = reinterpret_cast<curand_state_t *> (ref.get());
@@ -164,7 +164,7 @@ static void time_global_atomic_add(const string &name, int iterations_per_thread
     long nb = sep_flag ? nblocks : 1;
     long nelts_per_stream = nb * nelts;
     long nelts_tot = nstreams * nelts_per_stream;
-    assert(nelts_tot <= 1024L * 1024L * 1024L);
+    xassert(nelts_tot <= 1024L * 1024L * 1024L);
 	
     Array<T> p({nelts_tot}, af_gpu | af_zero);
     CurandStateArray state(total_threads, seed);

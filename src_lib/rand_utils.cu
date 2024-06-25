@@ -64,8 +64,8 @@ vector<long> random_integers_with_bounded_product(int n, long bound)
     for (int j = 0; j < n; j++)
 	p *= ret[j];
 
-    assert(p > 0);
-    assert(p <= bound);
+    xassert(p > 0);
+    xassert(p <= bound);
     return ret;
 }
 

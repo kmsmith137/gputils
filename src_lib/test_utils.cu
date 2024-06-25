@@ -1,11 +1,9 @@
 #include "../include/gputils/test_utils.hpp"
+#include "../include/gputils/complex_type_traits.hpp"  // is_complex_v<T>, decomplexify_type<T>::type
 #include "../include/gputils/rand_utils.hpp"
-
-// is_complex_v<T>, decomplexify_type<T>::type
-#include "../include/gputils/complex_type_traits.hpp"
+#include "../include/gputils/xassert.hpp"
 
 #include <cmath>
-#include <cassert>
 #include <complex>
 #include <iostream>
 
@@ -23,8 +21,8 @@ namespace gputils {
 // Helper for make_random_shape() and make_random_reshape_compatible_shapes().
 inline long make_random_axis(long maxaxis, long &maxsize)
 {
-    assert(maxaxis > 0);
-    assert(maxsize > 0);
+    xassert(maxaxis > 0);
+    xassert(maxsize > 0);
     
     long n = std::min(maxaxis, maxsize);
     double t = rand_uniform(1.0e-6, log(n+1.0) - 1.0e-6);
@@ -39,9 +37,9 @@ vector<long> make_random_shape(int ndim, long maxaxis, long maxsize)
     if (ndim == 0)
 	ndim = rand_int(1, ArrayMaxDim+1);
     
-    assert(ndim > 0);
-    assert(ndim <= ArrayMaxDim);
-    assert(maxsize > 0);
+    xassert(ndim > 0);
+    xassert(ndim <= ArrayMaxDim);
+    xassert(maxsize > 0);
 
     vector<long> shape(ndim);
     for (int d = 0; d < ndim; d++)
@@ -57,10 +55,10 @@ vector<long> make_random_shape(int ndim, long maxaxis, long maxsize)
 
 vector<long> make_random_strides(int ndim, const long *shape, int ncontig, int nalign)
 {
-    assert(ndim <= ArrayMaxDim);
-    assert(ncontig >= 0);
-    assert(ncontig <= ndim);
-    assert(nalign >= 1);
+    xassert(ndim <= ArrayMaxDim);
+    xassert(ncontig >= 0);
+    xassert(ncontig <= ndim);
+    xassert(nalign >= 1);
 
     int nd_strided = ndim - ncontig;
     vector<long> axis_ordering = rand_permutation(nd_strided);
@@ -70,7 +68,7 @@ vector<long> make_random_strides(int ndim, const long *shape, int ncontig, int n
 
     // These strides are contiguous
     for (int d = ndim-1; d >= nd_strided; d--) {
-	assert(shape[d] > 0);
+	xassert(shape[d] > 0);
 	strides[d] = min_stride;
 	min_stride += (shape[d]-1) * strides[d];
     }
@@ -78,7 +76,7 @@ vector<long> make_random_strides(int ndim, const long *shape, int ncontig, int n
     // These strides are not necessarily contiguous
     for (int i = 0; i < nd_strided; i++) {
 	int d = axis_ordering[i];
-	assert(shape[d] > 0);
+	xassert(shape[d] > 0);
 
 	// Assign stride (as multiple of nalign)
 	long smin = (min_stride + nalign - 1) / nalign;
@@ -117,8 +115,8 @@ void make_random_reshape_compatible_shapes(vector<long> &dshape,
 					   vector<long> &sstrides,
 					   int maxaxis, long maxsize)
 {
-    assert(maxaxis > 0);
-    assert(maxsize > 0);
+    xassert(maxaxis > 0);
+    xassert(maxsize > 0);
     
     vector<long> dstrides;
     dshape.clear();
@@ -191,10 +189,10 @@ void make_random_reshape_compatible_shapes(vector<long> &dshape,
 	}
     }
 
-    assert(dshape.size() == ddims);
-    assert(sshape.size() == sdims);
-    assert(dstrides.size() == ddims);
-    assert(sstrides.size() == sdims);
+    xassert(dshape.size() == ddims);
+    xassert(sshape.size() == sdims);
+    xassert(dstrides.size() == ddims);
+    xassert(sstrides.size() == sdims);
 
     if (ddims == 0)
 	dshape.push_back(1);
@@ -218,7 +216,7 @@ inline ostream &operator<<(ostream &os, __half x)
 template<typename T>
 void print_array(const Array<T> &arr, const vector<string> &axis_names, std::ostream &os)
 {
-    assert((axis_names.size() == 0) || (axis_names.size() == arr.ndim));
+    xassert((axis_names.size() == 0) || (axis_names.size() == arr.ndim));
 
     int nd = arr.ndim;
     
@@ -259,11 +257,11 @@ assert_arrays_equal(const Array<T> &arr1,
 {
     using Tr = typename decomplexify_type<T>::type;
     
-    assert(arr1.shape_equals(arr2));
-    assert(axis_names.size() == arr1.ndim);
-    assert(max_display > 0);
-    assert(epsabs >= 0.0);
-    assert(epsrel >= 0.0);
+    xassert(arr1.shape_equals(arr2));
+    xassert(axis_names.size() == arr1.ndim);
+    xassert(max_display > 0);
+    xassert(epsabs >= 0.0);
+    xassert(epsrel >= 0.0);
 
     Array<T> harr1 = arr1.to_host(false);  // page_locked=false
     Array<T> harr2 = arr2.to_host(false);  // page_locked=false
@@ -350,10 +348,10 @@ __global__ void busy_wait_kernel(uint *arr, long niter)
 
 void launch_busy_wait_kernel(Array<uint> &arr, double a40_seconds, cudaStream_t s)
 {
-    assert(arr.ndim == 1);
-    assert(arr.size == 32);
-    assert(arr.strides[0] == 1);
-    assert(arr.on_gpu());
+    xassert(arr.ndim == 1);
+    xassert(arr.size == 32);
+    xassert(arr.strides[0] == 1);
+    xassert(arr.on_gpu());
 
     long niter = 1.4e8 * a40_seconds;
     

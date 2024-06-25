@@ -1,9 +1,9 @@
-#include <thread>
-#include <cassert>
-#include <iostream>
-
-#include "../include/gputils/time_utils.hpp"    // get_time(), time_since()
 #include "../include/gputils/CpuThreadPool.hpp"
+#include "../include/gputils/time_utils.hpp"    // get_time(), time_since()
+#include "../include/gputils/xassert.hpp"
+
+#include <thread>
+#include <iostream>
 
 using namespace std;
 
@@ -16,9 +16,9 @@ namespace gputils {
 CpuThreadPool::CpuThreadPool(const callback_t &callback_, int nthreads_, int max_callbacks_per_thread_, const string &name_)
     : callback(callback_), nthreads(nthreads_), max_callbacks_per_thread(max_callbacks_per_thread_), name(name_)
 {
-    assert(nthreads > 0);
-    assert(nthreads <= 256);
-    assert(max_callbacks_per_thread >= 0);
+    xassert(nthreads > 0);
+    xassert(nthreads <= 256);
+    xassert(max_callbacks_per_thread >= 0);
 }
 
 void CpuThreadPool::run()

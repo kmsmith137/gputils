@@ -25,6 +25,7 @@ header_files_gputils_subdir = [
     'include/gputils/system_utils.hpp',
     'include/gputils/test_utils.hpp',
     'include/gputils/time_utils.hpp',
+    'include/gputils/xassert.hpp',
     'include/gputils/dlpack.h',
     'include/gputils/pybind11.hpp',
     'include/gputils/pybind11_utils.hpp'

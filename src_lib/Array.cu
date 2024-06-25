@@ -1,11 +1,11 @@
+#include "../include/gputils/Array.hpp"
+#include "../include/gputils/cuda_utils.hpp"    // CUDA_CALL()
+#include "../include/gputils/string_utils.hpp"  // tuple_str()
+
 #include <sstream>
 #include <iostream>
 #include <stdexcept>
 #include <algorithm>
-
-#include "../include/gputils/Array.hpp"
-#include "../include/gputils/cuda_utils.hpp"    // CUDA_CALL()
-#include "../include/gputils/string_utils.hpp"  // tuple_str()
 
 using namespace std;
 
@@ -80,16 +80,16 @@ struct stride_checker {
 void check_array_invariants(const void *data, int ndim, const long *shape,
 			    long size, const long *strides, int aflags)
 {
-    assert(ndim >= 0 && ndim <= ArrayMaxDim);
+    xassert((ndim >= 0) && (ndim <= ArrayMaxDim));
 
     for (int d = 0; d < ndim; d++) {
-	assert(shape[d] >= 0);
-	assert(strides[d] >= 0);
+	xassert(shape[d] >= 0);
+	xassert(strides[d] >= 0);
     }
 
-    assert(size == compute_size(ndim, shape));
-    assert(!((data == nullptr) && (size != 0)));
-    assert(!((data != nullptr) && (size == 0)));    
+    xassert(size == compute_size(ndim, shape));
+    xassert(!((data == nullptr) && (size != 0)));
+    xassert(!((data != nullptr) && (size == 0)));    
     check_aflags(aflags);
 
     if (size <= 1)
@@ -110,12 +110,12 @@ void check_array_invariants(const void *data, int ndim, const long *shape,
 	n++;
     }
 
-    assert(n > 0);  // should never fail
+    xassert(n > 0);  // should never fail
     std::sort(sc, sc+n);
 
     long min_stride = 1;
     for (int i = 0; i < n; i++) {
-	assert(sc[i].axis_stride >= min_stride);
+	xassert(sc[i].axis_stride >= min_stride);
 	min_stride += (sc[i].axis_length - 1) * sc[i].axis_stride;
     }
 }
@@ -182,7 +182,7 @@ static int reshape_helper2(int src_ndim, const long *src_shape, const long *src_
 
 	long ss = src_shape[is];
 	long sd = dst_shape[id];
-	assert((ss >= 2) && (sd >= 2));  // should never fail
+	xassert((ss >= 2) && (sd >= 2));  // should never fail
 
 	if ((ss % sd) == 0) {
 	    // Split source axis across one or more destination axes.
@@ -298,10 +298,10 @@ static void fill_helper2(char *dst, const char *src, int ndim, const fill_axis *
     }
 
     if (ndim == 2) {
-	// These two asserts are required by cudaMemcpy2D().
+	// These two conditions are required by cudaMemcpy2D().
 	// In particular, strides must be positive.
-	assert(axes[1].dstride >= axes[0].length);
-	assert(axes[1].sstride >= axes[0].length);
+	xassert(axes[1].dstride >= axes[0].length);
+	xassert(axes[1].sstride >= axes[0].length);
 	CUDA_CALL(cudaMemcpy2D(dst, axes[1].dstride, src, axes[1].sstride, axes[0].length, axes[1].length, cudaMemcpyDefault));
 	return;
     }

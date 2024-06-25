@@ -4,8 +4,10 @@
 #include <string>
 #include <vector>
 #include <stdexcept>
-#include "mem_utils.hpp"  // af_alloc() and flags
 #include <cuda_fp16.h>    // __half
+
+#include "mem_utils.hpp"  // af_alloc() and flags
+#include "xassert.hpp"    // af_alloc() and flags
 
 namespace gputils {
 #if 0
@@ -131,7 +133,6 @@ struct Array {
     inline bool ix_valid(const std::vector<long> &ix) const;
     inline void ix_next(std::vector<long> &ix) const;
     
-    
     inline bool shape_equals(int ndim, const long *shape) const;
     inline bool shape_equals(const std::vector<long> &shape) const;
     inline bool shape_equals(std::initializer_list<long> shape) const;
@@ -194,8 +195,8 @@ template<typename T>
 Array<T>::Array(int ndim_, const long *shape_, int aflags_)
     : ndim(ndim_), aflags(aflags_)
 {
-    assert(ndim >= 0);
-    assert(ndim <= ArrayMaxDim);
+    xassert(ndim >= 0);
+    xassert(ndim <= ArrayMaxDim);
 
     for (int i = ndim; i < ArrayMaxDim; i++)
 	shape[i] = strides[i] = 0;
@@ -211,7 +212,7 @@ Array<T>::Array(int ndim_, const long *shape_, int aflags_)
 	strides[i] = size;
 	shape[i] = shape_[i];
 	size *= shape_[i];
-	assert(shape[i] >= 0);
+	xassert(shape[i] >= 0);
     }
 
     if (size != 0) {
@@ -228,8 +229,8 @@ template<typename T>
 Array<T>::Array(int ndim_, const long *shape_, const long *strides_, int aflags_)
     : ndim(ndim_), aflags(aflags_)
 {
-    assert(ndim > 0);
-    assert(ndim <= ArrayMaxDim);
+    xassert(ndim > 0);
+    xassert(ndim <= ArrayMaxDim);
 
     for (int i = ndim; i < ArrayMaxDim; i++)
 	shape[i] = strides[i] = 0;
@@ -247,8 +248,8 @@ Array<T>::Array(int ndim_, const long *shape_, const long *strides_, int aflags_
 	shape[d] = shape_[d];
 	strides[d] = strides_[d];
 	
-	assert(shape[d] >= 0);
-	assert(strides[d] >= 0);
+	xassert(shape[d] >= 0);
+	xassert(strides[d] >= 0);
 	size *= shape[d];
 	nalloc += (shape[d]-1) * strides[d];
     }
@@ -327,12 +328,12 @@ int Array<T>::get_ncontig() const
 template<typename T>
 T& Array<T>::_at(int nd, const long *ix) const
 {
-    assert(on_host());
-    assert(this->ndim == nd);
+    xassert(on_host());
+    xassert(this->ndim == nd);
     
     long pos = 0;
     for (int d = 0; d < nd; d++) {
-	assert(ix[d] >= 0 && ix[d] < shape[d]);
+	xassert(ix[d] >= 0 && ix[d] < shape[d]);
 	pos += ix[d] * strides[d];
     }
     
@@ -351,12 +352,12 @@ template<typename T> const T& Array<T>::at(std::initializer_list<long> ix) const
 template<typename T>
 Array<T> Array<T>::slice(int axis, int ix) const
 {
-    assert((axis >= 0) && (axis < ndim));
-    assert((ix >= 0) && (ix < shape[axis]));
+    xassert((axis >= 0) && (axis < ndim));
+    xassert((ix >= 0) && (ix < shape[axis]));
 
     // Slicing (1-dim -> 0-dim) doesn't make sense,
     // since our zero-dimensional Arrays are empty.
-    assert(ndim > 1);
+    xassert(ndim > 1);
     
     Array<T> ret;
     ret.ndim = ndim-1;
@@ -392,8 +393,8 @@ Array<T> Array<T>::slice(int axis, int start, int stop) const
 {
     // Currently we allow slices like arr[2:10] but not arr[2:-10] or arr[2:10:2].
     // This would be easy to generalize!
-    assert((axis >= 0) && (axis < ndim));
-    assert((start >= 0) && (start <= stop) && (stop <= shape[axis]));
+    xassert((axis >= 0) && (axis < ndim));
+    xassert((start >= 0) && (start <= stop) && (stop <= shape[axis]));
     
     Array<T> ret;
     ret.ndim = ndim;
@@ -420,8 +421,8 @@ Array<T> Array<T>::slice(int axis, int start, int stop) const
 template<typename T>
 Array<T> Array<T>::reshape_ref(int ndim_, const long *shape_) const
 {
-    assert(ndim_ >= 0);
-    assert(ndim_ <= ArrayMaxDim);
+    xassert(ndim_ >= 0);
+    xassert(ndim_ <= ArrayMaxDim);
 	   
     Array<T> ret;
     ret.ndim = ndim_;
@@ -595,8 +596,8 @@ inline void convert_dtype_helper(Tdst *dst,
 template<typename Tsrc> template<typename Tdst>
 inline Array<Tdst> Array<Tsrc>::convert_dtype(int aflags) const
 {
-    assert(on_host());           // src array must be on host
-    assert(af_on_host(aflags));  // dst array must be on host
+    xassert(on_host());           // src array must be on host
+    xassert(af_on_host(aflags));  // dst array must be on host
     Array<Tdst> dst(ndim, shape, aflags);
 
     int ncontig = get_ncontig();

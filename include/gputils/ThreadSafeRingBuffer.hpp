@@ -3,8 +3,9 @@
 
 #include <mutex>
 #include <vector>
-#include <cassert>
 #include <condition_variable>
+
+#include "xassert.hpp"
 
 namespace gputils {
 #if 0
@@ -38,7 +39,7 @@ struct ThreadSafeRingBuffer
     ThreadSafeRingBuffer(long capacity_) :
 	capacity(capacity_)
     {
-	assert(capacity > 0);
+	xassert(capacity > 0);
 	ringbuf.resize(capacity);
     }
 
@@ -57,7 +58,7 @@ struct ThreadSafeRingBuffer
 	// If there is no space in ring buffer, wait for a call to get().
 	get_notifier.wait(lk, [this]{ return ((this->ix1 - this->ix0) < capacity); });
 
-	assert(!is_done);
+	xassert(!is_done);
 	ringbuf[ix1 % capacity] = t;
 	ix1++;
 
@@ -77,7 +78,7 @@ struct ThreadSafeRingBuffer
 	put_notifier.wait(lk, [this]{ return (this->is_done || (this->ix0 < this->ix1)); });
 
 	if (ix0 >= ix1) {
-	    assert(is_done);
+	    xassert(is_done);
 	    return false;
 	}
 

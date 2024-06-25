@@ -1,11 +1,11 @@
-#include <sstream>
-#include <iostream>
-
 #include "../include/gputils/mem_utils.hpp"
 #include "../include/gputils/cuda_utils.hpp"
 #include "../include/gputils/string_utils.hpp"          // nbytes_to_str()
 #include "../include/gputils/constexpr_functions.hpp"   // constexpr_is_pow2()
 
+#include <cassert>
+#include <sstream>
+#include <iostream>
 
 using namespace std;
 
@@ -128,7 +128,7 @@ struct alloc_helper {
 	int pflags = PROT_READ | PROT_WRITE;
 	int mflags = MAP_PRIVATE | MAP_ANONYMOUS;  // no MAP_HUGETLB
 
-	assert(flags & af_mmap_flags);
+	xassert(flags & af_mmap_flags);
 	
 	if (flags & (af_mmap_huge | af_mmap_try_huge)) {
 	    static_assert(constexpr_is_pow2(hugepage_size));
@@ -201,9 +201,9 @@ struct alloc_helper {
 	else if (posix_memalign((void **) &this->base, 128, this->nbytes_allocated))
 	    throw std::runtime_error("gputils::alloc(): couldn't allocate " + to_string(nbytes_allocated) + " bytes");
 	
-	assert(base != nullptr);
-	assert(base != MAP_FAILED);
-	assert(nbytes_allocated >= nbytes_requested);
+	xassert(base != nullptr);
+	xassert(base != MAP_FAILED);
+	xassert(nbytes_allocated >= nbytes_requested);
 	
 	this->data = base + g;
 
@@ -253,7 +253,7 @@ struct alloc_helper {
 
 	if (flags & af_guard) {
 	    this->gcopy = (char *) malloc(2*nguard);
-	    assert(gcopy != nullptr);
+	    xassert(gcopy != nullptr);
 	    randomize(gcopy, 2*nguard);
 	    
 	    fill(base, gcopy, nguard);

@@ -7,6 +7,7 @@
 
 #include "rand_utils.hpp"     // randomize()
 #include "system_utils.hpp"   // munmap_x()
+#include "xassert.hpp"
 
 namespace gputils {
 #if 0
@@ -94,7 +95,7 @@ inline std::shared_ptr<T> af_alloc(long nelts, int flags)
     // FIXME should have some static_asserts here, to ensure
     // that 'T' doesn't have constructors/destructors.
 
-    assert(nelts >= 0);
+    xassert(nelts >= 0);
     long nbytes = nelts * sizeof(T);
 
     // _af_alloc() handles all flags except 'af_random'.
@@ -128,7 +129,7 @@ inline void af_copy(T *dst, int dst_flags, const T *src, int src_flags, long nel
     // FIXME should have some static_asserts here, to ensure
     // that 'T' doesn't have constructors/destructors.
 
-    assert(nelts >= 0);
+    xassert(nelts >= 0);
     long nbytes = nelts * sizeof(T);
     
     _af_copy(dst, dst_flags, src, src_flags, nbytes);

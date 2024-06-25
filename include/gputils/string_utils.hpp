@@ -110,11 +110,17 @@ static std::string tuple_str(int nelts, const T *tuple, const char *space="")
 
 
 template<typename T>
-static std::string tuple_str(const std::vector<T> &tuple, const char *space="")
+static inline std::string tuple_str(const std::vector<T> &tuple, const char *space="")
 {
     return tuple_str(tuple.size(), &tuple[0], space);
 }
 
+
+template<typename T>
+static inline std::string tuple_str(std::initializer_list<T> ini, const char *space="")
+{
+    return tuple_str(ini.size(), ini.begin());
+}
 
 static inline std::string dim3_str(const dim3 &d, const char *space="")
 {

@@ -1,6 +1,11 @@
 #ifndef _GPUTILS_HPP
 #define _GPUTILS_HPP
 
+// By default, pybind11 files are not included!
+//
+// #include "gputils/dlpack.h"                // from https://github.com/dmlc/dlpack
+// #include "gputils/pybind11.hpp"            // externally visible Array<> converters
+// #include "gputils/pybind11_utils.gpp"      // utility functions, unlikely to be useful from outside gputils
 
 // Array class
 #include "gputils/Array.hpp"
@@ -50,9 +55,7 @@
 // get_time(), time_diff(), time_since()
 #include "gputils/time_utils.hpp"
 
-// pybind11 files are not included by default!
-
-// #include "gputils/pybind11.hpp"            // externally visible Array<> converters
-// #include "gputils/pybind11_utils.gpp"      // utility functions, unlikely to be useful from outside gputils
+// xassert(), xassert_msg(), xassert_eq(), etc.
+#include "gputils/xassert.hpp"
 
 #endif // _GPUTILS_HPP

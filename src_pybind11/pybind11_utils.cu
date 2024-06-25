@@ -325,7 +325,6 @@ void convert_array_from_python(
     base = shared_ptr<void> (src, Py_DecRef);
     Py_INCREF(src);
 
-    // FIXME I think this calls assert() if it fails.
     gputils::check_array_invariants(data, ndim, shape, size, strides, aflags);
 
     if (debug_prefix != nullptr)
@@ -391,7 +390,7 @@ PyObject *convert_array_to_python(
 
     // Paranoid!
     int flags = PyArray_FLAGS((PyArrayObject *) ret);
-    assert((flags & NPY_ARRAY_OWNDATA) == 0);
+    xassert((flags & NPY_ARRAY_OWNDATA) == 0);
     
     // We need a mechanism for keeping a reference to 'base' (a shared_ptr<void>) in the
     // newly constructed numpy array.

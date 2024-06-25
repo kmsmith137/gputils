@@ -81,7 +81,7 @@ static Array<float> unpack_bmat(const Array<float> &b_arr)
     // Unpack matrix B_{jk}, with register mapping
     //   b0 <-> j0     r0 <-> j3     t0 t1 t2 t3 t4 <-> j1 j2 k0 k1 k2
 
-    assert(b_arr.shape_equals({2,32,2}));   // (r,t,b)
+    xassert(b_arr.shape_equals({2,32,2}));   // (r,t,b)
     
     Array<float> b_mat({16,8}, af_rhost);
     
@@ -102,8 +102,8 @@ static Array<float> unpack_cmat(const Array<float> &c_arr)
 {
     // Unpack matrix C_{ik}, with register mapping
     //   b0 <-> k0     r0 <-> i3     t0 t1 t2 t3 t4 <-> k1 k2 i0 i1 i2
-
-    assert(c_arr.shape_equals({2,32,2}));   // (r,t,b)
+    
+    xassert(c_arr.shape_equals({2,32,2}));   // (r,t,b)
     
     Array<float> c_mat({16,8}, af_rhost);
 
@@ -126,9 +126,9 @@ static Array<float> unpack_amat(const Array<float> &a_arr, const Array<uint> &e_
     //    [A]  b <-> j0 j1    r <-> i3    t0 t1 t2 t3 t4 <-> j2 j3 i0 i1 i2
     //    [E]  b0 b1 b2 <-> j2 j3 i3      t0 t1 t2 t3 t4 <-> f0 f1 i0 i1 i2
 
-    assert(a_arr.shape_equals({2,32,2}));   // (r,t,b)
-    assert(e_arr.shape_equals({32}));
-    assert((f >= 0) && (f < 4));
+    xassert(a_arr.shape_equals({2,32,2}));   // (r,t,b)
+    xassert(e_arr.shape_equals({32}));
+    xassert((f >= 0) && (f < 4));
 
     Array<float> a_mat({16,16}, af_rhost | af_zero);
 	

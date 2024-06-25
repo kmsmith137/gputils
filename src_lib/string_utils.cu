@@ -1,9 +1,10 @@
-#include <cassert>
+#include "../include/gputils/string_utils.hpp"
+#include "../include/gputils/xassert.hpp"
+
 #include <cstring>
 #include <iomanip>
 #include <sstream>
 #include <iostream>
-#include "../include/gputils/string_utils.hpp"
 
 using namespace std;
 
@@ -31,7 +32,7 @@ string nbytes_to_str(long nbytes)
     constexpr long giga = 1024L * 1024L * 1024L;
     constexpr long tera = 1024L * 1024L * 1024L * 1024L;
 
-    assert(nbytes >= 0);
+    xassert(nbytes >= 0);
 	
     if (nbytes >= tera)
 	return _nbytes_to_str(nbytes, tera, "TB");

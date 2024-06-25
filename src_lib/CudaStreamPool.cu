@@ -1,9 +1,10 @@
-#include <thread>
-#include <iostream>
-
+#include "../include/gputils/CudaStreamPool.hpp"
 #include "../include/gputils/cuda_utils.hpp"    // CUDA_CALL(), CudaStreamWrapper
 #include "../include/gputils/time_utils.hpp"    // get_time(), time_since()
-#include "../include/gputils/CudaStreamPool.hpp"
+#include "../include/gputils/xassert.hpp"
+
+#include <thread>
+#include <iostream>
 
 using namespace std;
 
@@ -16,11 +17,11 @@ namespace gputils {
 CudaStreamPool::CudaStreamPool(const callback_t &callback_, int max_callbacks_, int nstreams_, const string &name_)
     : callback(callback_), max_callbacks(max_callbacks_), nstreams(nstreams_), name(name_)
 {
-    assert(max_callbacks >= 0);
-    assert(nstreams > 0);
+    xassert(max_callbacks >= 0);
+    xassert(nstreams > 0);
 
     CUDA_CALL(cudaGetDevice(&this->cuda_device));
-    assert(cuda_device >= 0);
+    xassert(cuda_device >= 0);
     
     // Streams will be created by cudaStreamWrapper constructor.
     this->streams.resize(nstreams);
@@ -64,7 +65,7 @@ void CudaStreamPool::show_timings()
     tm_default.thrflag = true;
 
     lock_guard<mutex> lg(lock);
-    assert(is_started);
+    xassert(is_started);
 
     double t = time_per_callback;
     double trec = (t > 0.0) ? (1.0/t) : 0.0;
@@ -104,7 +105,7 @@ void CudaStreamPool::_add_timing_monitor(const string &label, double coeff, bool
 
     lock_guard<mutex> lg(lock);
     
-    assert(is_done || !is_started);
+    xassert(is_done || !is_started);
     timing_monitors.push_back(tm);
 }
 
@@ -113,7 +114,7 @@ void CudaStreamPool::manager_thread_body(CudaStreamPool *pool)
     auto start_time = get_time();
     unique_lock ulock(pool->lock);
 
-    assert(pool->cuda_device >= 0);
+    xassert(pool->cuda_device >= 0);
     CUDA_CALL(cudaSetDevice(pool->cuda_device));
     
     for (;;) {
@@ -174,8 +175,8 @@ void CudaStreamPool::cuda_callback(void *up)
     CudaStreamPool *pool = u->pool;
     int istream = u->istream;
 
-    assert((istream >= 0) && (istream < pool->nstreams));
-    assert(&pool->sstate[istream] == u);
+    xassert((istream >= 0) && (istream < pool->nstreams));
+    xassert(&pool->sstate[istream] == u);
 
     unique_lock<mutex> ulock(pool->lock);
     u->state = 2;
