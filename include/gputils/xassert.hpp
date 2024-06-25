@@ -15,9 +15,8 @@
 #define xassert(cond) _xassert(cond,__LINE__)
 #define _xassert(cond,line) \
     do { \
-        if (_unlikely(!(cond))) { \
+        if (_unlikely(!(cond))) \
 	    throw std::runtime_error("C++ assertion '" __STRING(cond) "' failed (" __FILE__ ":" __STRING(line) ")"); \
-	} \
     } while (0)
 
 
@@ -25,9 +24,8 @@
 // The 'msg' argument can either be a (const char *) or a (const std::string &).
 #define xassert_msg(cond, msg) \
     do { \
-        if (_unlikely(!(cond))) { \
+        if (_unlikely(!(cond))) \
 	    throw std::runtime_error(msg); \
-	} \
     } while (0)
 
 
@@ -37,55 +35,49 @@
 #define xassert_eq(lhs,rhs) _xassert_eq(lhs,rhs,__LINE__)
 #define _xassert_eq(lhs,rhs,line) \
     do { \
-	if (_unlikely((lhs) != (rhs))) { \
+	if (_unlikely((lhs) != (rhs))) \
 	    throw std::runtime_error("C++ assertion (" __STRING(lhs) ") == (" __STRING(rhs) ") failed (" __FILE__ ":" __STRING(line) "): " \
 				     "lhs=" + std::to_string(lhs) + ", rhs=" + std::to_string(rhs)); \
-	} \
     } while (0)
 
 #define xassert_ne(lhs,rhs) _xassert_ne(lhs,rhs,__LINE__)
 #define _xassert_ne(lhs,rhs,line) \
     do { \
-	if (_unlikely((lhs) != (rhs))) { \
+	if (_unlikely((lhs) != (rhs))) \
 	    throw std::runtime_error("C++ assertion (" __STRING(lhs) ") != (" __STRING(rhs) ") failed (" __FILE__ ":" __STRING(line) "): " \
 				     "lhs=" + std::to_string(lhs) + ", rhs=" + std::to_string(rhs)); \
-	} \
     } while (0)
 
 #define xassert_lt(lhs,rhs) _xassert_lt(lhs,rhs,__LINE__)
 #define _xassert_lt(lhs,rhs,line) \
     do { \
-	if (_unlikely((lhs) >= (rhs))) { \
+	if (_unlikely((lhs) >= (rhs))) \
 	    throw std::runtime_error("C++ assertion (" __STRING(lhs) ") < (" __STRING(rhs) ") failed (" __FILE__ ":" __STRING(line) "): " \
 				     "lhs=" + std::to_string(lhs) + ", rhs=" + std::to_string(rhs)); \
-	} \
     } while (0)
 
 #define xassert_le(lhs,rhs) _xassert_le(lhs,rhs,__LINE__)
 #define _xassert_le(lhs,rhs,line) \
     do { \
-	if (_unlikely((lhs) > (rhs))) { \
+	if (_unlikely((lhs) > (rhs))) \
 	    throw std::runtime_error("C++ assertion (" __STRING(lhs) ") <= (" __STRING(rhs) ") failed (" __FILE__ ":" __STRING(line) "): " \
 				     "lhs=" + std::to_string(lhs) + ", rhs=" + std::to_string(rhs)); \
-	} \
     } while (0)
 
 #define xassert_ge(lhs,rhs) _xassert_ge(lhs,rhs,__LINE__)
 #define _xassert_ge(lhs,rhs,line) \
     do { \
-	if (_unlikely((lhs) < (rhs))) { \
+	if (_unlikely((lhs) < (rhs))) \
 	    throw std::runtime_error("C++ assertion (" __STRING(lhs) ") >= (" __STRING(rhs) ") failed (" __FILE__ ":" __STRING(line) "): " \
 				     "lhs=" + std::to_string(lhs) + ", rhs=" + std::to_string(rhs)); \
-	} \
     } while (0)
 
 #define xassert_gt(lhs,rhs) _xassert_gt(lhs,rhs,__LINE__)
 #define _xassert_gt(lhs,rhs,line) \
     do { \
-	if (_unlikely((lhs) <= (rhs))) { \
+	if (_unlikely((lhs) <= (rhs))) \
 	    throw std::runtime_error("C++ assertion (" __STRING(lhs) ") > (" __STRING(rhs) ") failed (" __FILE__ ":" __STRING(line) "): " \
 				     "lhs=" + std::to_string(lhs) + ", rhs=" + std::to_string(rhs)); \
-	} \
     } while (0)
 
 
