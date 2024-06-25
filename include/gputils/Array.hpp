@@ -21,10 +21,10 @@ struct Array {
     T *data = nullptr;
     
     int ndim = 0;
-    ssize_t shape[ArrayMaxDim];
-    ssize_t size = 0;
+    long shape[ArrayMaxDim];
+    long size = 0;
 
-    ssize_t strides[ArrayMaxDim];  // in units sizeof(T), not bytes
+    long strides[ArrayMaxDim];  // in units sizeof(T), not bytes
 
     std::shared_ptr<void> base;
     int aflags = 0;
@@ -43,18 +43,18 @@ struct Array {
     
     // Allocator flags ('aflags') are defined in mem_utils.hpp
     // Flags can be used to allocate memory on CPU/GPU, zero memory after allocation, etc.
-    Array(int ndim, const ssize_t *shape, int aflags);
-    Array(const std::vector<ssize_t> &shape, int aflags);
+    Array(int ndim, const long *shape, int aflags);
+    Array(const std::vector<long> &shape, int aflags);
     
     // Syntactic sugar for constructing array with "inline" dimensions, e.g.
     //    Array<float> arr({m,n}, af_gpu);
-    Array(std::initializer_list<ssize_t> shape, int aflags);
+    Array(std::initializer_list<long> shape, int aflags);
 
     // These constructors allow explicit strides.
     // Often used in unit tests, with make_random_strides() in test_utils.hpp.
-    Array(int ndim, const ssize_t *shape, const ssize_t *strides, int aflags);
-    Array(const std::vector<ssize_t> &shape, const std::vector<ssize_t> &strides, int aflags);
-    Array(std::initializer_list<ssize_t> shape, std::initializer_list<ssize_t> strides, int aflags);
+    Array(int ndim, const long *shape, const long *strides, int aflags);
+    Array(const std::vector<long> &shape, const std::vector<long> &strides, int aflags);
+    Array(std::initializer_list<long> shape, std::initializer_list<long> strides, int aflags);
 
     
     // Is array addressable on GPU? On host?
@@ -80,13 +80,13 @@ struct Array {
     // at(): range-checked accessor
     // (I'm reserving operator[] for an unchecked accessor.)
     
-    inline T& at(int ndim, const ssize_t *ix);
-    inline T& at(const std::vector<ssize_t> &ix);
-    inline T& at(std::initializer_list<ssize_t> ix);
+    inline T& at(int ndim, const long *ix);
+    inline T& at(const std::vector<long> &ix);
+    inline T& at(std::initializer_list<long> ix);
     
-    inline const T& at(int ndim, const ssize_t *ix) const;
-    inline const T& at(const std::vector<ssize_t> &ix) const;
-    inline const T& at(std::initializer_list<ssize_t> ix) const;
+    inline const T& at(int ndim, const long *ix) const;
+    inline const T& at(const std::vector<long> &ix) const;
+    inline const T& at(std::initializer_list<long> ix) const;
 
     
     // The new Arrays returned by slice() contain references
@@ -101,9 +101,9 @@ struct Array {
     //
     // FIXME reshape_ref() hasn't been systematically tested, and should be!
 
-    inline Array<T> reshape_ref(int ndim, const ssize_t *shape) const;
-    inline Array<T> reshape_ref(const std::vector<ssize_t> &shape) const;
-    inline Array<T> reshape_ref(std::initializer_list<ssize_t> shape) const;
+    inline Array<T> reshape_ref(int ndim, const long *shape) const;
+    inline Array<T> reshape_ref(const std::vector<long> &shape) const;
+    inline Array<T> reshape_ref(std::initializer_list<long> shape) const;
 
     // Converts (array of type T) -> (array of type T2).
     // FIXME for now, both arrays must be on host.
@@ -127,14 +127,14 @@ struct Array {
     // Warning: ix_valid() is not a general-purpose index validator!
     // It only works on the output of ix_start() -> ix_next() -> ...
     
-    inline std::vector<ssize_t> ix_start() const;
-    inline bool ix_valid(const std::vector<ssize_t> &ix) const;
-    inline void ix_next(std::vector<ssize_t> &ix) const;
+    inline std::vector<long> ix_start() const;
+    inline bool ix_valid(const std::vector<long> &ix) const;
+    inline void ix_next(std::vector<long> &ix) const;
     
     
-    inline bool shape_equals(int ndim, const ssize_t *shape) const;
-    inline bool shape_equals(const std::vector<ssize_t> &shape) const;
-    inline bool shape_equals(std::initializer_list<ssize_t> shape) const;
+    inline bool shape_equals(int ndim, const long *shape) const;
+    inline bool shape_equals(const std::vector<long> &shape) const;
+    inline bool shape_equals(std::initializer_list<long> shape) const;
     template<typename T2> inline bool shape_equals(const Array<T2> &a) const;    
 
     inline std::string shape_str() const;
@@ -144,7 +144,7 @@ struct Array {
     void check_invariants() const;
     
     // "Cheat" accessor, which gives a non-const reference to a const Array
-    inline T& _at(int ndim, const ssize_t *ix) const;
+    inline T& _at(int ndim, const long *ix) const;
 };
 
 
@@ -153,23 +153,23 @@ struct Array {
 // Non-inline functions defined elsewhere
 
 
-extern void check_array_invariants(const void *data, int ndim, const ssize_t *shape,
-				   ssize_t size, const ssize_t *strides, int aflags);
+extern void check_array_invariants(const void *data, int ndim, const long *shape,
+				   long size, const long *strides, int aflags);
 
-extern int compute_ncontig(int ndim, const ssize_t *shape, const ssize_t *strides);
+extern int compute_ncontig(int ndim, const long *shape, const long *strides);
 
-extern ssize_t compute_size(int ndim, const ssize_t *shape);
+extern long compute_size(int ndim, const long *shape);
 
-extern bool shape_eq(int ndim1, const ssize_t *shape1, int ndim2, const ssize_t *shape2);
+extern bool shape_eq(int ndim1, const long *shape1, int ndim2, const long *shape2);
 
-extern std::string shape_str(int ndim, const ssize_t *shape);
+extern std::string shape_str(int ndim, const long *shape);
 
-extern void reshape_ref_helper(int src_ndim, const ssize_t *src_shape, const ssize_t *src_strides,
-			       int dst_ndim, const ssize_t *dst_shape, ssize_t *dst_strides);
+extern void reshape_ref_helper(int src_ndim, const long *src_shape, const long *src_strides,
+			       int dst_ndim, const long *dst_shape, long *dst_strides);
 
-extern void fill_helper(void *dst, int dst_ndim, const ssize_t *dst_shape, const ssize_t *dst_strides,
-			const void *src, int src_ndim, const ssize_t *src_shape, const ssize_t *src_strides,
-			ssize_t itemsize, bool noisy=false);
+extern void fill_helper(void *dst, int dst_ndim, const long *dst_shape, const long *dst_strides,
+			const void *src, int src_ndim, const long *src_shape, const long *src_strides,
+			long itemsize, bool noisy=false);
 
 
 // -------------------------------------------------------------------------------------------------
@@ -182,16 +182,16 @@ Array<T>::Array()
     : Array(0, nullptr, 0) { }
 
 template<typename T>
-Array<T>::Array(const std::vector<ssize_t> &shape_, int aflags)
+Array<T>::Array(const std::vector<long> &shape_, int aflags)
     : Array(shape_.size(), &shape_[0], aflags) { }
 
 template<typename T>
-Array<T>::Array(std::initializer_list<ssize_t> shape_, int aflags)
+Array<T>::Array(std::initializer_list<long> shape_, int aflags)
     : Array(shape_.size(), shape_.begin(), aflags) { }
 
 
 template<typename T>
-Array<T>::Array(int ndim_, const ssize_t *shape_, int aflags_)
+Array<T>::Array(int ndim_, const long *shape_, int aflags_)
     : ndim(ndim_), aflags(aflags_)
 {
     assert(ndim >= 0);
@@ -225,7 +225,7 @@ Array<T>::Array(int ndim_, const ssize_t *shape_, int aflags_)
 
 
 template<typename T>
-Array<T>::Array(int ndim_, const ssize_t *shape_, const ssize_t *strides_, int aflags_)
+Array<T>::Array(int ndim_, const long *shape_, const long *strides_, int aflags_)
     : ndim(ndim_), aflags(aflags_)
 {
     assert(ndim > 0);
@@ -241,7 +241,7 @@ Array<T>::Array(int ndim_, const ssize_t *shape_, const ssize_t *strides_, int a
     }
 
     size = 1;
-    ssize_t nalloc = 1;
+    long nalloc = 1;
 	
     for (int d = 0; d < ndim; d++) {
 	shape[d] = shape_[d];
@@ -274,11 +274,11 @@ template<class C> int ndim_ss(const C &shape, const C &strides)
 }
 
 template<typename T>
-Array<T>::Array(const std::vector<ssize_t> &shape_, const std::vector<ssize_t> &strides_, int aflags)
+Array<T>::Array(const std::vector<long> &shape_, const std::vector<long> &strides_, int aflags)
     : Array(ndim_ss(shape_,strides_), &shape_[0], &strides_[0], aflags) { }
 
 template<typename T>
-Array<T>::Array(std::initializer_list<ssize_t> shape_, std::initializer_list<ssize_t> strides_, int aflags)
+Array<T>::Array(std::initializer_list<long> shape_, std::initializer_list<long> strides_, int aflags)
     : Array(ndim_ss(shape_,strides_), shape_.begin(), strides_.begin(), aflags) { }
 
 
@@ -325,12 +325,12 @@ int Array<T>::get_ncontig() const
 }
 
 template<typename T>
-T& Array<T>::_at(int nd, const ssize_t *ix) const
+T& Array<T>::_at(int nd, const long *ix) const
 {
     assert(on_host());
     assert(this->ndim == nd);
     
-    ssize_t pos = 0;
+    long pos = 0;
     for (int d = 0; d < nd; d++) {
 	assert(ix[d] >= 0 && ix[d] < shape[d]);
 	pos += ix[d] * strides[d];
@@ -339,13 +339,13 @@ T& Array<T>::_at(int nd, const ssize_t *ix) const
     return data[pos];
 }
 
-template<typename T> T& Array<T>::at(int nd, const ssize_t *ix)          { return _at(nd, ix); }
-template<typename T> T& Array<T>::at(const std::vector<ssize_t> &ix)     { return _at(ix.size(), &ix[0]); }
-template<typename T> T& Array<T>::at(std::initializer_list<ssize_t> ix)  { return _at(ix.size(), ix.begin()); }
+template<typename T> T& Array<T>::at(int nd, const long *ix)          { return _at(nd, ix); }
+template<typename T> T& Array<T>::at(const std::vector<long> &ix)     { return _at(ix.size(), &ix[0]); }
+template<typename T> T& Array<T>::at(std::initializer_list<long> ix)  { return _at(ix.size(), ix.begin()); }
 
-template<typename T> const T& Array<T>::at(int nd, const ssize_t *ix) const          { return _at(nd, ix); }
-template<typename T> const T& Array<T>::at(const std::vector<ssize_t> &ix) const     { return _at(ix.size(), &ix[0]); }
-template<typename T> const T& Array<T>::at(std::initializer_list<ssize_t> ix) const  { return _at(ix.size(), ix.begin()); }
+template<typename T> const T& Array<T>::at(int nd, const long *ix) const          { return _at(nd, ix); }
+template<typename T> const T& Array<T>::at(const std::vector<long> &ix) const     { return _at(ix.size(), &ix[0]); }
+template<typename T> const T& Array<T>::at(std::initializer_list<long> ix) const  { return _at(ix.size(), ix.begin()); }
 
 
 template<typename T>
@@ -418,7 +418,7 @@ Array<T> Array<T>::slice(int axis, int start, int stop) const
 
 
 template<typename T>
-Array<T> Array<T>::reshape_ref(int ndim_, const ssize_t *shape_) const
+Array<T> Array<T>::reshape_ref(int ndim_, const long *shape_) const
 {
     assert(ndim_ >= 0);
     assert(ndim_ <= ArrayMaxDim);
@@ -444,26 +444,26 @@ Array<T> Array<T>::reshape_ref(int ndim_, const ssize_t *shape_) const
 }
 
 template<typename T>
-inline Array<T> Array<T>::reshape_ref(const std::vector<ssize_t> &shape) const
+inline Array<T> Array<T>::reshape_ref(const std::vector<long> &shape) const
 {
     return reshape_ref(shape.size(), &shape[0]);
 }
 
 template<typename T>
-inline Array<T> Array<T>::reshape_ref(std::initializer_list<ssize_t> shape) const
+inline Array<T> Array<T>::reshape_ref(std::initializer_list<long> shape) const
 {
     return reshape_ref(shape.size(), shape.begin());
 }
 
 
 template<typename T>
-std::vector<ssize_t> Array<T>::ix_start() const
+std::vector<long> Array<T>::ix_start() const
 {
-    return std::vector<ssize_t> (ndim, 0);
+    return std::vector<long> (ndim, 0);
 }
 
 template<typename T>
-bool Array<T>::ix_valid(const std::vector<ssize_t> &ix) const
+bool Array<T>::ix_valid(const std::vector<long> &ix) const
 {
     // Warning: ix_valid() is not a general-purpose index validator!
     // Only works on the output of ix_start() -> ix_next() -> ...
@@ -471,7 +471,7 @@ bool Array<T>::ix_valid(const std::vector<ssize_t> &ix) const
 }
 
 template<typename T>
-void Array<T>::ix_next(std::vector<ssize_t> &ix) const
+void Array<T>::ix_next(std::vector<long> &ix) const
 {
     for (int d = ndim-1; d >= 1; d--) {
 	if (ix[d] < shape[d]-1) {
@@ -487,19 +487,19 @@ void Array<T>::ix_next(std::vector<ssize_t> &ix) const
 
 
 template<typename T>
-bool Array<T>::shape_equals(int ndim_, const ssize_t *shape_) const
+bool Array<T>::shape_equals(int ndim_, const long *shape_) const
 {
     return shape_eq(this->ndim, this->shape, ndim_, shape_);
 }
 
 template<typename T>
-bool Array<T>::shape_equals(const std::vector<ssize_t> &shape) const
+bool Array<T>::shape_equals(const std::vector<long> &shape) const
 {
     return shape_eq(this->ndim, this->shape, shape.size(), &shape[0]);
 }
 
 template<typename T>
-bool Array<T>::shape_equals(std::initializer_list<ssize_t> shape_) const
+bool Array<T>::shape_equals(std::initializer_list<long> shape_) const
 {
     return shape_eq(this->ndim, this->shape, shape_.size(), shape_.begin());
 }
@@ -569,10 +569,10 @@ template<typename Tdst, typename Tsrc>
 inline void convert_dtype_helper(Tdst *dst,
 				 const Tsrc *src,
 				 int nouter_dims,
-				 const ssize_t *outer_shape,			    
-				 const ssize_t *outer_dst_strides,
-				 const ssize_t *outer_src_strides,
-				 ssize_t nelts_contig)
+				 const long *outer_shape,			    
+				 const long *outer_dst_strides,
+				 const long *outer_src_strides,
+				 long nelts_contig)
 {
     if (nouter_dims > 0) {
 	for (int i = 0; i < outer_shape[0]; i++) {
@@ -602,7 +602,7 @@ inline Array<Tdst> Array<Tsrc>::convert_dtype(int aflags) const
     int ncontig = get_ncontig();
     int nouter = ndim - ncontig;
 
-    ssize_t nelts_contig = 1;
+    long nelts_contig = 1;
     for (int i = nouter; i < ndim; i++)
 	nelts_contig *= shape[i];
 

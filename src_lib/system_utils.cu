@@ -75,7 +75,7 @@ void mlockall_x(int flags)
 }
 
 
-void *mmap_x(void *addr, ssize_t length, int prot, int flags, int fd, off_t offset)
+void *mmap_x(void *addr, long length, int prot, int flags, int fd, off_t offset)
 {
     assert(length > 0);
     
@@ -89,7 +89,7 @@ void *mmap_x(void *addr, ssize_t length, int prot, int flags, int fd, off_t offs
 }
 
 	     
-void munmap_x(void *addr, ssize_t length)
+void munmap_x(void *addr, long length)
 {
     assert(length > 0);
     
@@ -100,15 +100,15 @@ void munmap_x(void *addr, ssize_t length)
 }
 
 
-void usleep_x(ssize_t usec)
+void usleep_x(long usec)
 {
     // According to usleep() manpage, sleeping for longer than this is an error!
-    static constexpr ssize_t max_usleep = 1000000;
+    static constexpr long max_usleep = 1000000;
 	
     assert(usec >= 0);
 
     while (usec > 0) {
-	ssize_t n = std::min(usec, max_usleep);
+	long n = std::min(usec, max_usleep);
 	usec -= n;
 	
 	int err = usleep(n);

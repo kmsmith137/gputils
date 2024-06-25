@@ -24,12 +24,12 @@ static string _nbytes_to_str(double nbytes, double nunits, const char *units)
 }
 
 
-string nbytes_to_str(ssize_t nbytes)
+string nbytes_to_str(long nbytes)
 {
-    constexpr ssize_t kilo = 1024L;
-    constexpr ssize_t mega = 1024L * 1024L;
-    constexpr ssize_t giga = 1024L * 1024L * 1024L;
-    constexpr ssize_t tera = 1024L * 1024L * 1024L * 1024L;
+    constexpr long kilo = 1024L;
+    constexpr long mega = 1024L * 1024L;
+    constexpr long giga = 1024L * 1024L * 1024L;
+    constexpr long tera = 1024L * 1024L * 1024L * 1024L;
 
     assert(nbytes >= 0);
 	
@@ -58,7 +58,7 @@ static std::string _nbytes_from_str_err(const string &s)
 
 
 // Parses string such as "1.5GB" or "256B"
-ssize_t nbytes_from_str(const string &s)
+long nbytes_from_str(const string &s)
 {
     // FIXME: some day I'll learn how to use std::string
     const char *cs = s.c_str();
@@ -81,7 +81,7 @@ ssize_t nbytes_from_str(const string &s)
     string s_numeric = s.substr(0,n1);
     string s_units = s.substr(n2,n3-n2);
     
-    ssize_t units;
+    long units;
     const char *cs_units = s_units.c_str();
     
     if (!strcasecmp(cs_units, "bytes") || !strcasecmp(cs_units, "B"))
@@ -97,7 +97,7 @@ ssize_t nbytes_from_str(const string &s)
     else
 	throw runtime_error(_nbytes_from_str_err(s));
 
-    ssize_t i_numeric = 0;
+    long i_numeric = 0;
     if (_from_str(s_numeric, i_numeric))
 	return i_numeric * units;
 

@@ -7,7 +7,7 @@
 // which gets called via the following C++ wrapper (in device_mma.hpp):
 //
 //   void mma_sp_f16_m16_n8_k16<F> (__half2 d[2], const __half2 a[2], const __half2 b[2],
-//                                  const __half2 c[2], unsigned int e);
+//                                  const __half2 c[2], uint e);
 
 #include <iostream>
 #include "../include/gputils.hpp"
@@ -42,8 +42,8 @@ __device__ void write_fragment(float *p, const __half2 src[2])
 }
 
 
-template<unsigned int F>
-__global__ void mma_sp_kernel(float *dp, const float *ap, const float *bp, const float *cp, unsigned int *ep)
+template<uint F>
+__global__ void mma_sp_kernel(float *dp, const float *ap, const float *bp, const float *cp, uint *ep)
 {
     __half2 a[2], b[2], c[2];
     read_fragment(a, ap);
@@ -56,7 +56,7 @@ __global__ void mma_sp_kernel(float *dp, const float *ap, const float *bp, const
 }
 
 
-static void launch_mma_sp_kernel(float *dp, const float *ap, const float *bp, const float *cp, unsigned int *ep, int f)
+static void launch_mma_sp_kernel(float *dp, const float *ap, const float *bp, const float *cp, uint *ep, int f)
 {
     if (f == 0)
 	mma_sp_kernel<0> <<<1,32>>> (dp, ap, bp, cp, ep);
@@ -120,7 +120,7 @@ static Array<float> unpack_cmat(const Array<float> &c_arr)
 }
 
 
-static Array<float> unpack_amat(const Array<float> &a_arr, const Array<unsigned int> &e_arr, int f)
+static Array<float> unpack_amat(const Array<float> &a_arr, const Array<uint> &e_arr, int f)
 {
     // Unpack matrix A_{ij}, with register mapping
     //    [A]  b <-> j0 j1    r <-> i3    t0 t1 t2 t3 t4 <-> j2 j3 i0 i1 i2
@@ -152,15 +152,15 @@ static Array<float> unpack_amat(const Array<float> &a_arr, const Array<unsigned 
 }
 
 
-static Array<unsigned int> make_random_e_array()
+static Array<uint> make_random_e_array()
 {
-    Array<unsigned int> e_arr({32}, af_rhost | af_zero);
+    Array<uint> e_arr({32}, af_rhost | af_zero);
 
     for (int i = 0; i < 32; i++) {
 	for (int j = 0; j < 8; j++) {
 	    // Random 4-bit selector
-	    unsigned int lo = rand_int(0,4);  // low 2 bits
-	    unsigned int hi = rand_int(0,3);  // high 2 bits
+	    uint lo = rand_int(0,4);  // low 2 bits
+	    uint hi = rand_int(0,3);  // high 2 bits
 	    if (hi >= lo)
 		hi++;
 
@@ -178,12 +178,12 @@ static void test_sparse_mma()
     Array<float> a_arr({2,32,2}, af_rhost | af_random);
     Array<float> b_arr({2,32,2}, af_rhost | af_random);
     Array<float> c_arr({2,32,2}, af_rhost | af_random);
-    Array<unsigned int> e_arr = make_random_e_array();
+    Array<uint> e_arr = make_random_e_array();
 
     Array<float> a_gpu = a_arr.to_gpu();
     Array<float> b_gpu = b_arr.to_gpu();
     Array<float> c_gpu = c_arr.to_gpu();
-    Array<unsigned int> e_gpu = e_arr.to_gpu();
+    Array<uint> e_gpu = e_arr.to_gpu();
 
     Array<float> b_mat = unpack_bmat(b_arr);
     Array<float> c_mat = unpack_cmat(c_arr);

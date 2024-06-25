@@ -11,9 +11,9 @@ using namespace gputils;
 
 
 struct TestArrayAxis {
-    ssize_t index = 0;
-    ssize_t length = 0;
-    ssize_t stride = 0;
+    long index = 0;
+    long length = 0;
+    long stride = 0;
 
     bool operator<(const TestArrayAxis &s) const
     {
@@ -29,13 +29,13 @@ struct RandomlyStridedArray {
 
     shared_ptr<T> cbase;  // contiguous base array
     shared_ptr<T> cbase_copy;
-    ssize_t cbase_len = 0;
+    long cbase_len = 0;
 
     std::vector<TestArrayAxis> axes;
     bool noisy = false;
 
     
-    RandomlyStridedArray(const vector<ssize_t> &shape, const vector<ssize_t> &strides, bool noisy_=false) :
+    RandomlyStridedArray(const vector<long> &shape, const vector<long> &strides, bool noisy_=false) :
 	noisy(noisy_)
     {
 	if (noisy) {
@@ -81,7 +81,7 @@ struct RandomlyStridedArray {
 	std::sort(axes.begin(), axes.end());
     }
 
-    RandomlyStridedArray(const vector<ssize_t> &shape_, bool noisy_=false)
+    RandomlyStridedArray(const vector<long> &shape_, bool noisy_=false)
 	: RandomlyStridedArray(shape_, make_random_strides(shape_), noisy_)
     { }
     
@@ -93,7 +93,7 @@ struct RandomlyStridedArray {
     // Given a cbase index 0 <= pos < cbase_len, return true (and
     // initialize the length-ndim array ix_out) if in 'arr'.
     
-    bool find(ssize_t pos, ssize_t *ix_out) const
+    bool find(long pos, long *ix_out) const
     {
 	assert(pos >= 0 && pos < cbase_len);
 
@@ -107,7 +107,7 @@ struct RandomlyStridedArray {
 		continue;
 	    }
 
-	    ssize_t j = pos / axis.stride;
+	    long j = pos / axis.stride;
 	    if (j >= axis.length)
 		return false;
 	    
@@ -123,9 +123,9 @@ struct RandomlyStridedArray {
     {
 	T *p1 = cbase.get();
 	T *p2 = cbase_copy.get();
-	ssize_t ix_out[ndim];
+	long ix_out[ndim];
 	
-	for (ssize_t i = 0; i < cbase_len; i++)
+	for (long i = 0; i < cbase_len; i++)
 	    if (!find(i, ix_out))
 		assert(p1[i] == p2[i]);
     }
@@ -136,14 +136,14 @@ struct RandomlyStridedArray {
     void test_basics() const
     {
 	vector<bool> flag(cbase_len, false);
-	ssize_t ix_out[ndim];
-	ssize_t s = 0;
+	long ix_out[ndim];
+	long s = 0;
 	
 	if (noisy)
 	    cout << "    test_basics()" << endl;
 
 	for (auto ix = arr.ix_start(); arr.ix_valid(ix); arr.ix_next(ix)) {
-	    ssize_t j = &arr.at(ix) - arr.data;
+	    long j = &arr.at(ix) - arr.data;
 	    assert(j >= 0 && j < cbase_len);
 	    assert(find(j, ix_out));
 	    assert(!flag[j]);
@@ -156,7 +156,7 @@ struct RandomlyStridedArray {
 
 	assert(s == arr.size);
 
-	for (ssize_t j = 0; j < cbase_len; j++)
+	for (long j = 0; j < cbase_len; j++)
 	    if (!flag[j])
 		assert(!find(j, ix_out));
     }
@@ -164,7 +164,7 @@ struct RandomlyStridedArray {
     
     void test_thin_slice(int axis, int pos) const
     {
-	ssize_t ix_out[ndim];
+	long ix_out[ndim];
 
 	// Thin-slicing 1-D arrays isn't implemented (see comment in Array.hpp)
 	assert(ndim > 1);
@@ -182,7 +182,7 @@ struct RandomlyStridedArray {
 	    assert(s.shape[d-1] == arr.shape[d]);
 
 	for (auto ix = s.ix_start(); s.ix_valid(ix); s.ix_next(ix)) {
-	    ssize_t j = &s.at(ix) - arr.data;
+	    long j = &s.at(ix) - arr.data;
 	    assert(j >= 0 && j < cbase_len);
 	    assert(find(j, ix_out));
 
@@ -204,7 +204,7 @@ struct RandomlyStridedArray {
 
     void test_thick_slice(int axis, int start, int stop) const
     {
-	ssize_t ix_out[ndim];
+	long ix_out[ndim];
 	
 	if (noisy) {
 	    cout << "    test_thick_slice(axis=" << axis
@@ -217,17 +217,17 @@ struct RandomlyStridedArray {
 
 	assert(s.ndim == ndim);
 	for (int d = 0; d < ndim; d++) {
-	    ssize_t t = (d == axis) ? (stop-start) : arr.shape[d];
+	    long t = (d == axis) ? (stop-start) : arr.shape[d];
 	    assert(s.shape[d] == t);
 	}
 
 	for (auto ix = s.ix_start(); s.ix_valid(ix); s.ix_next(ix)) {
-	    ssize_t j = &s.at(ix) - arr.data;
+	    long j = &s.at(ix) - arr.data;
 	    assert(j >= 0 && j < cbase_len);
 	    assert(find(j, ix_out));
 
 	    for (int d = 0; d < ndim; d++) {
-		ssize_t t = (d == axis) ? start : 0;
+		long t = (d == axis) ? start : 0;
 		assert(ix_out[d] == ix[d] + t);
 	    }
 	}
@@ -260,9 +260,9 @@ struct RandomlyStridedArray {
 
 template<typename T>
 struct FillTestInstance {
-    vector<ssize_t> shape;
-    vector<ssize_t> strides1;
-    vector<ssize_t> strides2;
+    vector<long> shape;
+    vector<long> strides1;
+    vector<long> strides2;
     
     RandomlyStridedArray<T> rs1;
     RandomlyStridedArray<T> rs2;
@@ -270,9 +270,9 @@ struct FillTestInstance {
     bool noisy = false;
     
     
-    FillTestInstance(const vector<ssize_t> &shape_,
-		     const vector<ssize_t> &strides1_,
-		     const vector<ssize_t> &strides2_) :
+    FillTestInstance(const vector<long> &shape_,
+		     const vector<long> &strides1_,
+		     const vector<long> &strides2_) :
 	shape(shape_),
 	strides1(strides1_),
 	strides2(strides2_),
@@ -280,7 +280,7 @@ struct FillTestInstance {
 	rs2(shape_, strides2_)
     { }
     
-    FillTestInstance(const vector<ssize_t> &shape_) :
+    FillTestInstance(const vector<long> &shape_) :
 	FillTestInstance(shape_, make_random_strides(shape_), make_random_strides(shape_))
     { }
 
@@ -322,9 +322,9 @@ struct FillTestInstance {
 
 
 template<typename T>
-static void test_reshape_ref(const vector<ssize_t> &dst_shape,
-			     const vector<ssize_t> &src_shape,
-			     const vector<ssize_t> &src_strides,
+static void test_reshape_ref(const vector<long> &dst_shape,
+			     const vector<long> &src_shape,
+			     const vector<long> &src_strides,
 			     bool noisy=false)
 {
     if (noisy) {
@@ -363,7 +363,7 @@ static void test_reshape_ref(const vector<ssize_t> &dst_shape,
 template<typename T>
 static void test_reshape_ref(bool noisy=false)
 {
-    vector<ssize_t> dshape, sshape, sstrides;
+    vector<long> dshape, sshape, sstrides;
     make_random_reshape_compatible_shapes(dshape, sshape, sstrides);
     test_reshape_ref<T> (dshape, sshape, sstrides, noisy);
 }
@@ -385,7 +385,7 @@ template<> struct dtype_epsilon<__half> { static constexpr double value = 0.005;
 
 
 template<typename Tdst, typename Tsrc>
-static void test_convert_dtype(const vector<ssize_t> &shape, const vector<ssize_t> &strides, bool noisy=false)
+static void test_convert_dtype(const vector<long> &shape, const vector<long> &strides, bool noisy=false)
 {
     double epsilon = std::max(dtype_epsilon<Tdst>::value, dtype_epsilon<Tsrc>::value);
     
@@ -416,11 +416,11 @@ static void test_convert_dtype(const vector<ssize_t> &shape, const vector<ssize_
 template<typename Tdst, typename Tsrc>
 static void test_convert_dtype(bool noisy=false)
 {
-    vector<ssize_t> shape = make_random_shape();
+    vector<long> shape = make_random_shape();
 
     int ndim = shape.size();
     int ncontig = rand_int(0, ndim+1);
-    vector<ssize_t> strides = make_random_strides(shape, ncontig);
+    vector<long> strides = make_random_strides(shape, ncontig);
 
     test_convert_dtype<Tdst,Tsrc> (shape, strides, noisy);
 }

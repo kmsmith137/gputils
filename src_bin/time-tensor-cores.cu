@@ -231,7 +231,7 @@ static void time_int_mma(int niter, int num_active_warps=32)
 // Here, nth = (nblocks * nthreads_per_block) is the total number of threads in the kernel.
 
 
-template<void (*F)(__half2[], const __half2[], const __half2[], const __half2[], unsigned int), int Areg, int Breg, int Creg>
+template<void (*F)(__half2[], const __half2[], const __half2[], const __half2[], uint), int Areg, int Breg, int Creg>
 __global__ void mma_sparse_f16_kernel(float *cdst, const float *asrc, const float *bsrc, int niter, int num_active_warps)
 {
     int warpId = threadIdx.x >> 5;
@@ -266,7 +266,7 @@ __global__ void mma_sparse_f16_kernel(float *cdst, const float *asrc, const floa
 }
 
 
-template<void (*F)(__half2[], const __half2[], const __half2[], const __half2[], unsigned int), int M, int N, int K>
+template<void (*F)(__half2[], const __half2[], const __half2[], const __half2[], uint), int M, int N, int K>
 static void time_sparse_f16_mma(int niter, int num_active_warps=32)
 {
     constexpr int Areg = (M*K) / 128;  // note 128 here

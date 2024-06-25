@@ -75,9 +75,9 @@ static void _convert_array_from_python(py::object &obj)
     gputils::convert_array_from_python(
         data,                                 // void *&data
 	value.ndim,                           // int &ndim
-	value.shape,                          // ssize_t *shape
-	value.strides,                        // ssize_t *strides
-	value.size,                           // ssize_t &size
+	value.shape,                          // long *shape
+	value.strides,                        // long *strides
+	value.size,                           // long &size
 	gputils::dlpack_type_code<T>::value,  // int dlpack_type_code
 	sizeof(T),                            // int itemsize
 	value.base,                           // std::shared_ptr<void> &base

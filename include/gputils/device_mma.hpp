@@ -23,10 +23,10 @@ void mma_f16_m16_n8_k8(__half2 d[2], const __half2 a[2], const __half2 b[1], con
         "{%2, %3}, "
         "{%4}, "
         "{%5, %6};" :
-        "=r" (*(unsigned int *) &d[0]), "=r" (*(unsigned int *) &d[1]) :
-        "r" (*(const unsigned int *) &a[0]), "r" (*(const unsigned int *) &a[1]),
-        "r" (*(const unsigned int *) &b[0]),
-        "r" (*(const unsigned int *) &c[0]), "r" (*(const unsigned int *) &c[1])
+        "=r" (*(uint *) &d[0]), "=r" (*(uint *) &d[1]) :
+        "r" (*(const uint *) &a[0]), "r" (*(const uint *) &a[1]),
+        "r" (*(const uint *) &b[0]),
+        "r" (*(const uint *) &c[0]), "r" (*(const uint *) &c[1])
     );
 }
 
@@ -40,10 +40,10 @@ void mma_f16_m16_n8_k16(__half2 d[2], const __half2 a[4], const __half2 b[2], co
         "{%2, %3, %4, %5}, "
         "{%6, %7}, "
         "{%8, %9};" :
-        "=r" (*(unsigned int *) &d[0]), "=r" (*(unsigned int *) &d[1]) :
-        "r" (*(const unsigned int *) &a[0]), "r" (*(const unsigned int *) &a[1]), "r" (*(const unsigned int *) &a[2]), "r" (*(const unsigned int *) &a[3]),
-        "r" (*(const unsigned int *) &b[0]), "r" (*(const unsigned int *) &b[1]),
-        "r" (*(const unsigned int *) &c[0]), "r" (*(const unsigned int *) &c[1])
+        "=r" (*(uint *) &d[0]), "=r" (*(uint *) &d[1]) :
+        "r" (*(const uint *) &a[0]), "r" (*(const uint *) &a[1]), "r" (*(const uint *) &a[2]), "r" (*(const uint *) &a[3]),
+        "r" (*(const uint *) &b[0]), "r" (*(const uint *) &b[1]),
+        "r" (*(const uint *) &c[0]), "r" (*(const uint *) &c[1])
     );
 }
 
@@ -168,9 +168,9 @@ void mma_b1_m8_n8_k128(int d[2], const int a[1], const int b[1], const int c[2])
 
 
 // D = A*B + C
-template<unsigned int F>
+template<uint F>
 __device__ __forceinline__
-void mma_sp_f16_m16_n8_k16(__half2 d[2], const __half2 a[2], const __half2 b[2], const __half2 c[2], unsigned int e)
+void mma_sp_f16_m16_n8_k16(__half2 d[2], const __half2 a[2], const __half2 b[2], const __half2 c[2], uint e)
 {
     asm(
 #if CUDART_VERSION >= 12050
@@ -184,10 +184,10 @@ void mma_sp_f16_m16_n8_k16(__half2 d[2], const __half2 a[2], const __half2 b[2],
         "{%6, %7}, "
         "%8, "
         "%9;" :
-        "=r" (*(unsigned int *) &d[0]), "=r" (*(unsigned int *) &d[1]) :
-        "r" (*(const unsigned int *) &a[0]), "r" (*(const unsigned int *) &a[1]),
-        "r" (*(const unsigned int *) &b[0]), "r" (*(const unsigned int *) &b[1]),
-        "r" (*(const unsigned int *) &c[0]), "r" (*(const unsigned int *) &c[1]),
+        "=r" (*(uint *) &d[0]), "=r" (*(uint *) &d[1]) :
+        "r" (*(const uint *) &a[0]), "r" (*(const uint *) &a[1]),
+        "r" (*(const uint *) &b[0]), "r" (*(const uint *) &b[1]),
+        "r" (*(const uint *) &c[0]), "r" (*(const uint *) &c[1]),
         "r" (e),
         "n" (F)
     );
@@ -195,9 +195,9 @@ void mma_sp_f16_m16_n8_k16(__half2 d[2], const __half2 a[2], const __half2 b[2],
 
 
 // D = A*B + C
-template<unsigned int F>
+template<uint F>
 __device__ __forceinline__
-void mma_sp_f16_m16_n8_k32(__half2 d[2], const __half2 a[4], const __half2 b[4], const __half2 c[2], unsigned int e)
+void mma_sp_f16_m16_n8_k32(__half2 d[2], const __half2 a[4], const __half2 b[4], const __half2 c[2], uint e)
 {
     asm(
 #if CUDART_VERSION >= 12050
@@ -211,10 +211,10 @@ void mma_sp_f16_m16_n8_k32(__half2 d[2], const __half2 a[4], const __half2 b[4],
         "{%10, %11}, "
         "%12, "
         "%13;" :
-        "=r" (*(unsigned int *) &d[0]), "=r" (*(unsigned int *) &d[1]) :
-        "r" (*(const unsigned int *) &a[0]), "r" (*(const unsigned int *) &a[1]), "r" (*(const unsigned int *) &a[2]), "r" (*(const unsigned int *) &a[3]),
-        "r" (*(const unsigned int *) &b[0]), "r" (*(const unsigned int *) &b[1]), "r" (*(const unsigned int *) &b[2]), "r" (*(const unsigned int *) &b[3]),
-        "r" (*(const unsigned int *) &c[0]), "r" (*(const unsigned int *) &c[1]),
+        "=r" (*(uint *) &d[0]), "=r" (*(uint *) &d[1]) :
+        "r" (*(const uint *) &a[0]), "r" (*(const uint *) &a[1]), "r" (*(const uint *) &a[2]), "r" (*(const uint *) &a[3]),
+        "r" (*(const uint *) &b[0]), "r" (*(const uint *) &b[1]), "r" (*(const uint *) &b[2]), "r" (*(const uint *) &b[3]),
+        "r" (*(const uint *) &c[0]), "r" (*(const uint *) &c[1]),
         "r" (e),
         "n" (F)
     );

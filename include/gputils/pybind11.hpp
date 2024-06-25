@@ -44,9 +44,9 @@ struct type_caster<gputils::Array<T>>
 	gputils::convert_array_from_python(
 	    data,                                 // void *&data
 	    this->value.ndim,                     // int &ndim
-	    this->value.shape,                    // ssize_t *shape
-	    this->value.strides,                  // ssize_t *strides
-	    this->value.size,                     // ssize_t &size
+	    this->value.shape,                    // long *shape
+	    this->value.strides,                  // long *strides
+	    this->value.size,                     // long &size
 	    gputils::dlpack_type_code<T>::value,  // int dlpack_type_code
 	    sizeof(T),                            // int itemsize
 	    this->value.base,                     // std::shared_ptr<void> &base
@@ -71,8 +71,8 @@ struct type_caster<gputils::Array<T>>
 	return gputils::convert_array_to_python(
 	    src.data,                         // void *data
 	    src.ndim,                         // int ndim
-	    src.shape,                        // const ssize_t *shape
-	    src.strides,                      // const ssize_t *strides
+	    src.shape,                        // const long *shape
+	    src.strides,                      // const long *strides
 	    gputils::npy_type_num<T>::value,  // int npy_typenum
 	    sizeof(T),                        // int itemsize
 	    src.base,                         // const shared_ptr<void> &base

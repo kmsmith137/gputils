@@ -16,22 +16,22 @@ namespace gputils {
 #endif
 
 
-ssize_t compute_size(int ndim, const ssize_t *shape)
+long compute_size(int ndim, const long *shape)
 {
-    ssize_t ret = ndim ? 1 : 0;
+    long ret = ndim ? 1 : 0;
     for (int d = 0; d < ndim; d++)
 	ret *= shape[d];
     return ret;
 }
 
 
-int compute_ncontig(int ndim, const ssize_t *shape, const ssize_t *strides)
+int compute_ncontig(int ndim, const long *shape, const long *strides)
 {
     for (int d = 0; d < ndim; d++)
 	if (shape[d] == 0)
 	    return ndim;
 
-    ssize_t s = 1;
+    long s = 1;
     for (int d = ndim-1; d >= 0; d--) {
 	if ((shape[d] > 1) && (strides[d] != s))
 	    return ndim-1-d;
@@ -42,14 +42,14 @@ int compute_ncontig(int ndim, const ssize_t *shape, const ssize_t *strides)
 }
 
 
-string shape_str(int ndim, const ssize_t *shape)
+string shape_str(int ndim, const long *shape)
 {
     // Avoids #include-ing string_utils.hpp in Array.hpp
     return tuple_str(ndim, shape);
 }
 
 
-bool shape_eq(int ndim1, const ssize_t *shape1, int ndim2, const ssize_t *shape2)
+bool shape_eq(int ndim1, const long *shape1, int ndim2, const long *shape2)
 {
     if (ndim1 != ndim2)
 	return false;
@@ -67,8 +67,8 @@ bool shape_eq(int ndim1, const ssize_t *shape1, int ndim2, const ssize_t *shape2
 
 // Helper for check_array_invariants()
 struct stride_checker {
-    ssize_t axis_length;
-    ssize_t axis_stride;
+    long axis_length;
+    long axis_stride;
 
     bool operator<(const stride_checker &x)
     {
@@ -77,8 +77,8 @@ struct stride_checker {
 };
 
 
-void check_array_invariants(const void *data, int ndim, const ssize_t *shape,
-			    ssize_t size, const ssize_t *strides, int aflags)
+void check_array_invariants(const void *data, int ndim, const long *shape,
+			    long size, const long *strides, int aflags)
 {
     assert(ndim >= 0 && ndim <= ArrayMaxDim);
 
@@ -113,7 +113,7 @@ void check_array_invariants(const void *data, int ndim, const ssize_t *shape,
     assert(n > 0);  // should never fail
     std::sort(sc, sc+n);
 
-    ssize_t min_stride = 1;
+    long min_stride = 1;
     for (int i = 0; i < n; i++) {
 	assert(sc[i].axis_stride >= min_stride);
 	min_stride += (sc[i].axis_length - 1) * sc[i].axis_stride;
@@ -135,8 +135,8 @@ void check_array_invariants(const void *data, int ndim, const ssize_t *shape,
 //   1 = dst_shape is incompatible with src_shape (or dst_shape is invalid)
 //   2 = src and dst shapes are compatible, but src_strides don't allow axes to be combined
 
-static int reshape_helper2(int src_ndim, const ssize_t *src_shape, const ssize_t *src_strides,
-			   int dst_ndim, const ssize_t *dst_shape, ssize_t *dst_strides)
+static int reshape_helper2(int src_ndim, const long *src_shape, const long *src_strides,
+			   int dst_ndim, const long *dst_shape, long *dst_strides)
 {
     // If we detect shape incompatbility, we "return 1" immediately.
     // If we detect bad src_strides, we set ret=2, rather than "return 2" immediately.
@@ -147,8 +147,8 @@ static int reshape_helper2(int src_ndim, const ssize_t *src_shape, const ssize_t
 	if (dst_shape[d] < 0)
 	    return 1;  // invalid dst_shape
     
-    ssize_t src_size = compute_size(src_ndim, src_shape);
-    ssize_t dst_size = compute_size(dst_ndim, dst_shape);
+    long src_size = compute_size(src_ndim, src_shape);
+    long dst_size = compute_size(dst_ndim, dst_shape);
     if (src_size != dst_size)
 	return 1;      // catches empty-array corner cases
 
@@ -180,8 +180,8 @@ static int reshape_helper2(int src_ndim, const ssize_t *src_shape, const ssize_t
 	if ((is == src_ndim) || (id == dst_ndim))
 	    return 1;    // should never happen, thanks to "if (src_size != dst_size) ..." above
 
-	ssize_t ss = src_shape[is];
-	ssize_t sd = dst_shape[id];
+	long ss = src_shape[is];
+	long sd = dst_shape[id];
 	assert((ss >= 2) && (sd >= 2));  // should never fail
 
 	if ((ss % sd) == 0) {
@@ -208,7 +208,7 @@ static int reshape_helper2(int src_ndim, const ssize_t *src_shape, const ssize_t
 	    // In the loop below, destination axis parameters (id,sd) are fixed.
 	    // At top, src axes <= is have "consumed" ss elements, where ss | sd.
 	    
-	    ssize_t tot_stride = (src_strides[is] * ss);
+	    long tot_stride = (src_strides[is] * ss);
 	    if (tot_stride % sd != 0)
 		ret = 2;   // not "return 2"
 	    
@@ -241,8 +241,8 @@ static int reshape_helper2(int src_ndim, const ssize_t *src_shape, const ssize_t
 //   - validates dst_shape
 //   - initializes dst_strides
 
-void reshape_ref_helper(int src_ndim, const ssize_t *src_shape, const ssize_t *src_strides,
-			int dst_ndim, const ssize_t *dst_shape, ssize_t *dst_strides)
+void reshape_ref_helper(int src_ndim, const long *src_shape, const long *src_strides,
+			int dst_ndim, const long *dst_shape, long *dst_strides)
 {
     int status = reshape_helper2(src_ndim, src_shape, src_strides, dst_ndim, dst_shape, dst_strides);
 
@@ -268,9 +268,9 @@ void reshape_ref_helper(int src_ndim, const ssize_t *src_shape, const ssize_t *s
 
 
 struct fill_axis {
-    ssize_t length;
-    ssize_t dstride;  // in bytes
-    ssize_t sstride;  // in bytes
+    long length;
+    long dstride;  // in bytes
+    long sstride;  // in bytes
 
     inline bool operator<(const fill_axis &a) const
     {
@@ -319,9 +319,9 @@ static void fill_helper2(char *dst, const char *src, int ndim, const fill_axis *
 
 
 
-void fill_helper(void *dst, int dst_ndim, const ssize_t *dst_shape, const ssize_t *dstride,
-		 const void *src, int src_ndim, const ssize_t *src_shape, const ssize_t *sstride,
-		 ssize_t itemsize, bool noisy)
+void fill_helper(void *dst, int dst_ndim, const long *dst_shape, const long *dstride,
+		 const void *src, int src_ndim, const long *src_shape, const long *sstride,
+		 long itemsize, bool noisy)
 {
     // Check that dst/src shapes match.
     
@@ -333,7 +333,7 @@ void fill_helper(void *dst, int dst_ndim, const ssize_t *dst_shape, const ssize_
     }
 
     int ndim = dst_ndim;
-    const ssize_t *shape = dst_shape;
+    const long *shape = dst_shape;
 
     // If empty array, then return early
     
@@ -371,13 +371,13 @@ void fill_helper(void *dst, int dst_ndim, const ssize_t *dst_shape, const ssize_
     axes_c[0].sstride = 1;
 
     // (Length * stride) of last coalesced axis.
-    ssize_t dlen = itemsize;
-    ssize_t slen = itemsize;
+    long dlen = itemsize;
+    long slen = itemsize;
     
     for (int d = 0; d < nax_u; d++) {
 	if ((axes_u[d].dstride == dlen) && (axes_u[d].sstride == slen)) {
 	    // Can coalesce
-	    ssize_t s = axes_u[d].length;
+	    long s = axes_u[d].length;
 	    axes_c[nax_c-1].length *= s;
 	    dlen *= s;
 	    slen *= s;

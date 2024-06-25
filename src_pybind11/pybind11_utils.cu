@@ -170,7 +170,7 @@ static int device_type_to_aflags(DLDeviceType d)
 
 __attribute__ ((visibility ("default")))
 void convert_array_from_python(
-    void *&data, int &ndim, ssize_t *shape, ssize_t *strides, ssize_t &size,
+    void *&data, int &ndim, long *shape, long *strides, long &size,
     int dlpack_type_code, int itemsize, std::shared_ptr<void> &base, int &aflags,
     PyObject *src, bool convert, const char *debug_prefix)
 {
@@ -349,7 +349,7 @@ void convert_array_from_python(
 
 __attribute__ ((visibility ("default")))
 PyObject *convert_array_to_python(
-    void *data, int ndim, const ssize_t *shape, const ssize_t *strides,
+    void *data, int ndim, const long *shape, const long *strides,
     int type_num, int itemsize, const shared_ptr<void> &base, int aflags,
     pybind11::return_value_policy policy, pybind11::handle parent)
 {

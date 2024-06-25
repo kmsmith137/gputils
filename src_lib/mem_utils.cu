@@ -91,18 +91,18 @@ string aflag_str(int flags)
 
 
 struct alloc_helper {
-    static constexpr ssize_t nguard = 4096;
+    static constexpr long nguard = 4096;
 
-    const ssize_t nbytes_requested;
+    const long nbytes_requested;
     const int flags;
 
-    ssize_t nbytes_allocated;
+    long nbytes_allocated;
     char *base = nullptr;    
     char *data = nullptr;
     char *gcopy = nullptr;
     
 
-    string mmap_error_message(ssize_t nbytes, bool hugepage_flag)
+    string mmap_error_message(long nbytes, bool hugepage_flag)
     {
 	stringstream ss;
 	
@@ -120,7 +120,7 @@ struct alloc_helper {
     // Initializes this->base, this->nbytes_allocated (including padding).
     // Does not call cudaRegisterMemory() -- that's done by the caller!
     
-    inline void _mmap(ssize_t nbytes_unpadded)
+    inline void _mmap(long nbytes_unpadded)
     {
 	static constexpr int page_size = 4 * 1024;
 	static constexpr int hugepage_size = 2 * 1024 * 1024;
@@ -132,7 +132,7 @@ struct alloc_helper {
 	
 	if (flags & (af_mmap_huge | af_mmap_try_huge)) {
 	    static_assert(constexpr_is_pow2(hugepage_size));
-	    static constexpr ssize_t mask = hugepage_size - 1;
+	    static constexpr long mask = hugepage_size - 1;
 	    
 	    this->nbytes_allocated = (nbytes_unpadded + mask) & (~mask);
 	    this->base = (char *) mmap(NULL, nbytes_allocated, pflags, mflags | MAP_HUGETLB, -1, 0);  // note MAP_HUGETLB
@@ -150,7 +150,7 @@ struct alloc_helper {
 
 	if (flags & (af_mmap_small | af_mmap_try_huge)) {
 	    static_assert(constexpr_is_pow2(page_size));
-	    static constexpr ssize_t mask = page_size - 1;
+	    static constexpr long mask = page_size - 1;
 	    
 	    this->nbytes_allocated = (nbytes_unpadded + mask) & (~mask);
 	    this->base = (char *) mmap(NULL, nbytes_allocated, pflags, mflags, -1, 0);   // note no MAP_HUGETLB
@@ -166,7 +166,7 @@ struct alloc_helper {
 
 
     // Helper for constructor
-    void fill(void *dst, const void *src, ssize_t nbytes)
+    void fill(void *dst, const void *src, long nbytes)
     {
 	if (flags & af_gpu)
 	    CUDA_CALL(cudaMemcpy(dst, src, nbytes, cudaMemcpyHostToDevice));
@@ -175,12 +175,12 @@ struct alloc_helper {
     }
     
     
-    alloc_helper(ssize_t nbytes, int flags_) :
+    alloc_helper(long nbytes, int flags_) :
 	nbytes_requested(nbytes), flags(flags_)
     {
 	check_aflags(flags, "af_alloc");
 	
-	ssize_t g = (flags & af_guard) ? nguard : 0;
+	long g = (flags & af_guard) ? nguard : 0;
 	this->nbytes_allocated = nbytes_requested + 2*g;
 
 	// Step 1: allocate memory, initializing this->base, this->nbytes_allocated, this->data.
@@ -346,7 +346,7 @@ struct alloc_helper {
 
 
 // Handles all flags except 'af_random'
-shared_ptr<void> _af_alloc(ssize_t nbytes, int flags)
+shared_ptr<void> _af_alloc(long nbytes, int flags)
 {
     alloc_helper h(nbytes, flags);
 
@@ -373,7 +373,7 @@ shared_ptr<void> _af_alloc(ssize_t nbytes, int flags)
 // -------------------------------------------------------------------------------------------------
 
 
-void _af_copy(void *dst, int dst_flags, const void *src, int src_flags, ssize_t nbytes)
+void _af_copy(void *dst, int dst_flags, const void *src, int src_flags, long nbytes)
 {
     if (nbytes == 0)
 	return;

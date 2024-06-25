@@ -120,7 +120,7 @@ struct CudaEventWrapper {
     //   cudaEventDisableTiming: event does not need to record timing data
     //   cudaEventInterprocess: event may be used as an interprocess event by cudaIpcGetEventHandle()
     
-    CudaEventWrapper(unsigned int flags = cudaEventDefault)
+    CudaEventWrapper(uint flags = cudaEventDefault)
     {
 	cudaEvent_t e;
 	CUDA_CALL(cudaEventCreateWithFlags(&e, flags));

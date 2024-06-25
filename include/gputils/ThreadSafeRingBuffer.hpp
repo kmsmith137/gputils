@@ -22,7 +22,7 @@ namespace gputils {
 template<class T>
 struct ThreadSafeRingBuffer
 {
-    const ssize_t capacity;
+    const long capacity;
 
     std::mutex lock;
     std::condition_variable get_notifier;  // this cv gets notified on calls to get()
@@ -31,11 +31,11 @@ struct ThreadSafeRingBuffer
     // Protected by 'lock'.
     std::vector<T> ringbuf;    
     bool is_done = false;
-    ssize_t ix0 = 0;
-    ssize_t ix1 = 0;
+    long ix0 = 0;
+    long ix1 = 0;
 
     
-    ThreadSafeRingBuffer(ssize_t capacity_) :
+    ThreadSafeRingBuffer(long capacity_) :
 	capacity(capacity_)
     {
 	assert(capacity > 0);

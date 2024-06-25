@@ -167,7 +167,7 @@ def emit_dense_f16_mma(m, n, k, s=1, layout=None):
     b = 'col' if (layout is None) else layout[1]
     ptx_name = f'mma.sync.aligned.m{m}n{n}k{k}.{a}.{b}.f16.f16.f16.f16'
     
-    emit_dense_mma(cuda_name, ptx_name, '__half2', 16, 16, m, n, k, ptx_type='unsigned int', s=s)
+    emit_dense_mma(cuda_name, ptx_name, '__half2', 16, 16, m, n, k, ptx_type='uint', s=s)
 
 
 def emit_dense_int_mma(sbits, m, n, k):
@@ -191,12 +191,12 @@ def emit_sparse_f16_mma(m, n, k):
     emit_kernel(
         cuda_name,
         ptx_name,
-        Argument('d', '__half2', nc, ptx_type='unsigned int'),
-        Argument('a', '__half2', na, ptx_type='unsigned int', is_const=True),
-        Argument('b', '__half2', nb, ptx_type='unsigned int', is_const=True),
-        Argument('c', '__half2', nc, ptx_type='unsigned int', is_const=True),
-        Argument('e', 'unsigned int', 1, pack=False, is_scalar=True, is_const=True),
-        Argument('F', 'unsigned int', 1, pack=False, is_scalar=True, is_const=True, is_immediate=True)
+        Argument('d', '__half2', nc, ptx_type='uint'),
+        Argument('a', '__half2', na, ptx_type='uint', is_const=True),
+        Argument('b', '__half2', nb, ptx_type='uint', is_const=True),
+        Argument('c', '__half2', nc, ptx_type='uint', is_const=True),
+        Argument('e', 'uint', 1, pack=False, is_scalar=True, is_const=True),
+        Argument('F', 'uint', 1, pack=False, is_scalar=True, is_const=True, is_immediate=True)
     )
 
     

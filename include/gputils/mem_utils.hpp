@@ -21,15 +21,15 @@ namespace gputils {
 
 // See below for a complete list of flags.
 template<typename T>
-inline std::shared_ptr<T> af_alloc(ssize_t nelts, int flags);
+inline std::shared_ptr<T> af_alloc(long nelts, int flags);
 
 
 template<typename T>
-inline void af_copy(T *dst, int dst_flags, const T *src, int src_flags, ssize_t nelts);
+inline void af_copy(T *dst, int dst_flags, const T *src, int src_flags, long nelts);
 
 
 template<typename T>
-inline std::shared_ptr<T> af_clone(int dst_flags, const T *src, ssize_t nelts);
+inline std::shared_ptr<T> af_clone(int dst_flags, const T *src, long nelts);
 
 
 // -------------------------------------------------------------------------------------------------
@@ -82,20 +82,20 @@ inline bool af_on_host(int flags) { return (flags & af_gpu) == 0; }
 
 
 // Handles all flags except 'af_random'.
-extern std::shared_ptr<void> _af_alloc(ssize_t nbytes, int flags);
+extern std::shared_ptr<void> _af_alloc(long nbytes, int flags);
 
 // Uses location flags, but ignores initialization and debug flags.
-extern void _af_copy(void *dst, int dst_flags, const void *src, int src_flags, ssize_t nbytes);
+extern void _af_copy(void *dst, int dst_flags, const void *src, int src_flags, long nbytes);
 
 
 template<typename T>
-inline std::shared_ptr<T> af_alloc(ssize_t nelts, int flags)
+inline std::shared_ptr<T> af_alloc(long nelts, int flags)
 {
     // FIXME should have some static_asserts here, to ensure
     // that 'T' doesn't have constructors/destructors.
 
     assert(nelts >= 0);
-    ssize_t nbytes = nelts * sizeof(T);
+    long nbytes = nelts * sizeof(T);
 
     // _af_alloc() handles all flags except 'af_random'.
     std::shared_ptr<T> ret = std::reinterpret_pointer_cast<T> (_af_alloc(nbytes, flags));
@@ -123,20 +123,20 @@ inline std::shared_ptr<T> af_alloc(ssize_t nelts, int flags)
 
 
 template<typename T>
-inline void af_copy(T *dst, int dst_flags, const T *src, int src_flags, ssize_t nelts)
+inline void af_copy(T *dst, int dst_flags, const T *src, int src_flags, long nelts)
 {
     // FIXME should have some static_asserts here, to ensure
     // that 'T' doesn't have constructors/destructors.
 
     assert(nelts >= 0);
-    ssize_t nbytes = nelts * sizeof(T);
+    long nbytes = nelts * sizeof(T);
     
     _af_copy(dst, dst_flags, src, src_flags, nbytes);
 }
 
 
 template<typename T>
-inline std::shared_ptr<T> af_clone(int dst_flags, const T *src, ssize_t nelts)
+inline std::shared_ptr<T> af_clone(int dst_flags, const T *src, long nelts)
 {
     dst_flags &= ~af_initialization_flags;
     std::shared_ptr<T> ret = af_alloc<T> (nelts, dst_flags);

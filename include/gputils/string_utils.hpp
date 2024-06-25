@@ -128,10 +128,10 @@ static inline std::string dim3_str(const dim3 &d, const char *space="")
 
 
 // Converts integer byte count to a string such as "1.5 MB" or "320 bytes".
-extern std::string nbytes_to_str(ssize_t nbytes);
+extern std::string nbytes_to_str(long nbytes);
 
 // Converts a string such as "1.5 MB" or "320 bytes" to a byte count.
-extern ssize_t nbytes_from_str(const std::string &s);
+extern long nbytes_from_str(const std::string &s);
 
 
 } // namespace gputils

@@ -408,7 +408,7 @@ struct MatParamsInt : public MatParamsBase<Nrows, Ncols, BitDepth>
 		int s = src.at({ir,ic});
 		assert((s >= smin) && (s <= smax));
 
-		unsigned int us = (s << (32-bit_depth));
+		uint us = (s << (32-bit_depth));
 		s = (us >> (32-bit_depth-b));
 		dst.at({j}) |= s;
 	    }
@@ -577,7 +577,7 @@ struct MmaParams
 	int na = (asrc.ndim > 1) ? asrc.shape[0] : 1;
 	int nb = (bsrc.ndim > 1) ? bsrc.shape[0] : 1;
 
-	vector<ssize_t> cshape;
+	vector<long> cshape;
 	if (asrc.ndim > 1)
 	    cshape.push_back(na);
 	if (bsrc.ndim > 1)

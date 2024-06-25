@@ -30,12 +30,12 @@ struct local_transpose_f16
 
 struct local_transpose_i16
 {
-    using Dtype = unsigned int;
+    using Dtype = uint;
     
-    static __device__ __forceinline__ void do_transpose(unsigned int &x, unsigned int &y)
+    static __device__ __forceinline__ void do_transpose(uint &x, uint &y)
     {
-	unsigned int xnew = __byte_perm(x, y, 0x5410);
-	unsigned int ynew = __byte_perm(x, y, 0x7632);
+	uint xnew = __byte_perm(x, y, 0x5410);
+	uint ynew = __byte_perm(x, y, 0x7632);
 	x = xnew;
 	y = ynew;
     }

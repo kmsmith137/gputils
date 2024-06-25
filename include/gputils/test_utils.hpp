@@ -49,7 +49,7 @@ assert_arrays_equal(const Array<T> &arr1,
 		    const std::vector<std::string> &axis_names,
 		    float epsabs = 3.0e-5,
 		    float epsrel = 1.0e-5,
-		    ssize_t max_display = 15,
+		    long max_display = 15,
 		    bool verbose = false);
 
 
@@ -59,21 +59,21 @@ assert_arrays_equal(const Array<T> &arr1,
 
 
 // If ndim=0, then number of dimensions will be random.
-extern std::vector<ssize_t> make_random_shape(int ndim=0, ssize_t maxaxis=20, ssize_t maxsize=10000);
+extern std::vector<long> make_random_shape(int ndim=0, long maxaxis=20, long maxsize=10000);
 
 
 // If ncontig > 0, then the last 'ncontig' axes are guaranteed contiguous.
 // If nalign > 1, then all strides besides the last 'ncontig' are guaranteed multiples of 'nalign'.
-extern std::vector<ssize_t> make_random_strides(int ndim, const ssize_t *shape, int ncontig=0, int nalign=1);
-extern std::vector<ssize_t> make_random_strides(const std::vector<ssize_t> &shape, int ncontig=0, int nalign=1);
+extern std::vector<long> make_random_strides(int ndim, const long *shape, int ncontig=0, int nalign=1);
+extern std::vector<long> make_random_strides(const std::vector<long> &shape, int ncontig=0, int nalign=1);
 
 
 // This specialized function is intended for testing Array<T>::reshape_ref() (see tests/test-array.cu).
-extern void make_random_reshape_compatible_shapes(std::vector<ssize_t> &dst_shape,
-						  std::vector<ssize_t> &src_shape,
-						  std::vector<ssize_t> &src_strides,
+extern void make_random_reshape_compatible_shapes(std::vector<long> &dst_shape,
+						  std::vector<long> &src_shape,
+						  std::vector<long> &src_strides,
 						  int maxaxis = 20,
-						  ssize_t maxsize = 10000);
+						  long maxsize = 10000);
 
 
 // -------------------------------------------------------------------------------------------------
