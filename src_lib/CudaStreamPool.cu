@@ -37,8 +37,11 @@ CudaStreamPool::CudaStreamPool(const callback_t &callback_, int max_callbacks_, 
 void CudaStreamPool::run()
 {
     unique_lock ulock(lock);
+    
     if (is_started)
 	throw runtime_error("CudaStreamPool::run() called twice");
+    if (timing_monitors.size() == 0)
+	throw runtime_error("CudaStreamPool: run() was called without adding any timing monitors first");
     
     is_started = true;
     ulock.unlock();

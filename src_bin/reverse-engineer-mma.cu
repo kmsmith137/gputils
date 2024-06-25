@@ -346,7 +346,7 @@ struct MatParamsInt : public MatParamsBase<Nrows, Ncols, BitDepth>
 
 
     // Returns 1-d array of length fragment_length.
-    __host__ Array<int> make_fragment(int aflags=0) const
+    __host__ Array<int> make_fragment(int aflags) const
     {
 	return Array<int> ({fragment_length}, aflags);
     }
@@ -355,7 +355,7 @@ struct MatParamsInt : public MatParamsBase<Nrows, Ncols, BitDepth>
     // Returns 2-d array of shape (num_state_bits+1, fragment_length).
     static __host__ Array<int> make_basis_fragments()
     {
-	Array<int> ret({num_state_bits+1, fragment_length}, af_zero);  // on cpu
+	Array<int> ret({num_state_bits+1, fragment_length}, af_rhost | af_zero);
 	ret.at({0,0}) = 1;
 
 	for (int b = 0; b < num_state_bits; b++) {
@@ -399,7 +399,7 @@ struct MatParamsInt : public MatParamsBase<Nrows, Ncols, BitDepth>
 	Array<int> src = src_.to_host();
 	xassert(src.shape_equals({nrows, ncols}));
 
-	Array<int> dst({fragment_length}, af_zero);
+	Array<int> dst({fragment_length}, af_rhost | af_zero);
 
 	for (int ir = 0; ir < nrows; ir++) {
 	    for (int ic = 0; ic < ncols; ic++) {
@@ -423,7 +423,7 @@ struct MatParamsInt : public MatParamsBase<Nrows, Ncols, BitDepth>
     __host__ void test_pack_unpack() const
     {
 	for (int iouter = 0; iouter < 10; iouter++) {
-	    Array<int> a = make_fragment(af_random);
+	    Array<int> a = make_fragment(af_rhost | af_random);
 	    Array<int> b = pack_fragment(unpack_fragment(a));
 
 	    xassert(a.shape_equals({fragment_length}));
@@ -456,7 +456,7 @@ struct MatParamsFloat16 : MatParamsBase<Nrows, Ncols, 16>
 
 
     // Returns 1-d array of length fragment_length.
-    __host__ Array<float> make_fragment(int aflags=0) const
+    __host__ Array<float> make_fragment(int aflags) const
     {
 	return Array<float> ({fragment_length}, aflags);
     }
@@ -465,7 +465,7 @@ struct MatParamsFloat16 : MatParamsBase<Nrows, Ncols, 16>
     // Returns 2-d array of shape (num_state_bits+1, fragment_length).
     static __host__ Array<float> make_basis_fragments()
     {
-	Array<float> ret({num_state_bits+1, fragment_length}, af_zero);  // on cpu
+	Array<float> ret({num_state_bits+1, fragment_length}, af_rhost | af_zero);
 	ret.at({0,0}) = 1.0;
 
 	for (int b = 0; b < num_state_bits; b++)
@@ -500,7 +500,7 @@ struct MatParamsFloat16 : MatParamsBase<Nrows, Ncols, 16>
 	Array<float> src = src_.to_host();
 	xassert(src.shape_equals({nrows, ncols}));
 
-	Array<float> dst({fragment_length}, af_zero);
+	Array<float> dst({fragment_length}, af_rhost | af_zero);
 
 	for (int ir = 0; ir < nrows; ir++) {
 	    for (int ic = 0; ic < ncols; ic++) {
@@ -526,7 +526,7 @@ void test_pack_unpack(const MatParams &params)
     
     for (int iouter = 0; iouter < 10; iouter++) {
 	// Declared 'auto' since Array<MatParams::Dtype> gave an incomprehensible compiler error.
-	auto a = params.make_fragment(af_random);
+	auto a = params.make_fragment(af_rhost | af_random);
 	auto b = params.pack_fragment(params.unpack_fragment(a));
 	
 	xassert(a.shape_equals({fragment_length}));
@@ -723,8 +723,8 @@ struct MmaParams
 	test_pack_unpack(cparams);
 
 	for (int iouter = 0; iouter < 10; iouter++) {
-	    Array<Dtype> asrc({AParams::fragment_length}, af_random);
-	    Array<Dtype> bsrc({BParams::fragment_length}, af_random);
+	    Array<Dtype> asrc({AParams::fragment_length}, af_rhost | af_random);
+	    Array<Dtype> bsrc({BParams::fragment_length}, af_rhost | af_random);
 	    
 	    Array<Dtype> cgpu = run_kernel(asrc, bsrc);
 	    cgpu = cparams.unpack_fragment(cgpu);

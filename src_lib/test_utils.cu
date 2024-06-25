@@ -216,7 +216,7 @@ inline ostream &operator<<(ostream &os, __half x)
 template<typename T>
 void print_array(const Array<T> &arr, const vector<string> &axis_names, std::ostream &os)
 {
-    xassert((axis_names.size() == 0) || (axis_names.size() == arr.ndim));
+    xassert((axis_names.size() == 0) || (axis_names.size() == uint(arr.ndim)));
 
     int nd = arr.ndim;
     
@@ -258,7 +258,7 @@ assert_arrays_equal(const Array<T> &arr1,
     using Tr = typename decomplexify_type<T>::type;
     
     xassert(arr1.shape_equals(arr2));
-    xassert(axis_names.size() == arr1.ndim);
+    xassert(axis_names.size() == uint(arr1.ndim));
     xassert(max_display > 0);
     xassert(epsabs >= 0.0);
     xassert(epsrel >= 0.0);
