@@ -15,7 +15,7 @@ namespace gputils {
 #endif
 
 
-static constexpr int ArrayMaxDim = 6;
+static constexpr int ArrayMaxDim = 8;
 
 
 template<typename T>
