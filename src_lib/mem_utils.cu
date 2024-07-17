@@ -6,6 +6,7 @@
 #include <cassert>
 #include <sstream>
 #include <iostream>
+#include <sys/mman.h>
 
 using namespace std;
 

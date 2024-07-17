@@ -6,7 +6,6 @@
 #include <type_traits>
 
 #include "rand_utils.hpp"     // randomize()
-#include "system_utils.hpp"   // munmap_x()
 #include "xassert.hpp"
 
 namespace gputils {

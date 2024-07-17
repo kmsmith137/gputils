@@ -22,7 +22,6 @@ header_files_gputils_subdir = [
     'include/gputils/memcpy_kernels.hpp',
     'include/gputils/rand_utils.hpp',
     'include/gputils/string_utils.hpp',
-    'include/gputils/system_utils.hpp',
     'include/gputils/test_utils.hpp',
     'include/gputils/time_utils.hpp',
     'include/gputils/xassert.hpp',
@@ -41,7 +40,6 @@ libgputils_source_files = [
     'src_lib/memcpy_kernels.cu',
     'src_lib/rand_utils.cu',
     'src_lib/string_utils.cu',
-    'src_lib/system_utils.cu',
     'src_lib/test_utils.cu'
 ]
 

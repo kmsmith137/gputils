@@ -46,9 +46,6 @@
 // to_str(), from_str(), tuple_str(), type_name()
 #include "gputils/string_utils.hpp"
 
-// Error-checked (*_x) versions of linux/posix functions, which throw verbose exceptions on failure.
-#include "gputils/system_utils.hpp"
-
 // assert_arrays_equal()
 #include "gputils/test_utils.hpp"
 
