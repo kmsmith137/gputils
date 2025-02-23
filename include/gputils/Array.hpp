@@ -98,6 +98,9 @@ struct Array {
 
     // The new Arrays returned by transpose() contain references (not copies)
     // to data in the original Array.
+    //
+    // FIXME transpose() hasn't been systematically tested.
+    
     inline Array<T> transpose(const int *perm) const;
     inline Array<T> transpose(const std::vector<int> &perm) const;
     inline Array<T> transpose(std::initializer_list<int> ix) const;
@@ -106,7 +109,7 @@ struct Array {
     // is incompatible with the current shape; (2) current strides don't permit
     // axes to be combined without copying.
     //
-    // FIXME reshape_ref() hasn't been systematically tested, and should be!
+    // FIXME reshape_ref() hasn't been systematically tested.
 
     inline Array<T> reshape_ref(int ndim, const long *shape) const;
     inline Array<T> reshape_ref(const std::vector<long> &shape) const;
@@ -440,8 +443,8 @@ inline Array<T> Array<T>::transpose(const int *perm) const
     
     for (int d = 0; d < ndim; d++) {
 	int p = perm[d];
-	assert((p >= 0) && (p < ndim));
-	assert(!flags[p]);   // if fails, then 'perm' is not a permutation
+	xassert((p >= 0) && (p < ndim));
+	xassert(!flags[p]);   // if fails, then 'perm' is not a permutation
 	
 	ret.shape[d] = this->shape[p];
 	ret.strides[d] = this->strides[p];
@@ -455,21 +458,20 @@ inline Array<T> Array<T>::transpose(const int *perm) const
 template<typename T>
 inline Array<T> Array<T>::transpose(const std::vector<int> &perm) const
 {
-    assert(ssize_t(perm.size()) == ndim);
+    xassert(ssize_t(perm.size()) == ndim);
     return this->transpose(&perm[0]);
 }
 
 template<typename T>
 inline Array<T> Array<T>::transpose(std::initializer_list<int> perm) const
 {
-    assert(perm.size() == ndim);
+    xassert(perm.size() == ndim);
     return this->transpose(perm.begin());
 }
 
 
 template<typename T>
-Array<T> Array<T>::reshape_ref(int ndim_, const ssize_t *shape_) const
->>>>>>> master
+inline Array<T> Array<T>::reshape_ref(int ndim_, const ssize_t *shape_) const
 {
     xassert(ndim_ >= 0);
     xassert(ndim_ <= ArrayMaxDim);
